@@ -1,11 +1,11 @@
 
 import type { Request, Response } from 'express'
-import { getTasaVigente } from '../services/rate.service.js'
+import { getCurrentRate } from '../repositories/rate.repository.js'
 import { listarColaboradores } from '../services/collaborator.service.js'
 
 export async function handleGetTasa(req: Request, res: Response): Promise<void> {
-  const tasa = await getTasaVigente()
-  res.json({ rate: tasa })
+  const rate = await getCurrentRate()
+  res.json({ rate })
 }
 
 export async function handleGetColaboradores(req: Request, res: Response): Promise<void> {

@@ -23,6 +23,13 @@ export function withAuth(handler: Handler): Handler {
       requireAuth(req, res, () => resolve()).catch(reject)
     })
     if (res.headersSent) return
-    await handler(req, res)
+    try {
+      await handler(req, res)
+    } catch (err: unknown) {
+      if (!res.headersSent) {
+        const msg = err instanceof Error ? err.message : 'Error interno'
+        res.status(500).json({ error: msg })
+      }
+    }
   }
 }
