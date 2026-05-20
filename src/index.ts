@@ -25,8 +25,14 @@ import { withAuth } from './middleware/auth.js'
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ─── MODO EXPRESS (VPS) ──────────────────────────────────────────────────────
-import { initializeApp } from 'firebase-admin/app'
-initializeApp()
+import { initializeApp, cert } from 'firebase-admin/app'
+
+if (process.env.FIREBASE_SA_B64) {
+  const sa = JSON.parse(Buffer.from(process.env.FIREBASE_SA_B64, 'base64').toString())
+  initializeApp({ credential: cert(sa) })
+} else {
+  initializeApp()
+}
 
 const app = express()
 
