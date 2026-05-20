@@ -5,6 +5,7 @@ import {
   getTopClientes,
   getDailyMetrics,
 } from '../repositories/transaction.repository.js'
+import { getCurrentRate } from '../repositories/rate.repository.js'
 import type {
   MetricasHoy,
   MetricasMes,
@@ -27,19 +28,21 @@ export type DashboardData = {
   colaboradores: ColaboradorMetrica[]
   topClientes: ClienteMetrica[]
   diario: DiaMetrica[]
+  tasaActual: number | null
 }
 
 export async function obtenerDashboard(year: number, month: number): Promise<DashboardData> {
   const inicio = `${year}-${String(month).padStart(2, '0')}-01`
   const fin = new Date(year, month, 0).toISOString().split('T')[0]
 
-  const [hoy, mes, colaboradores, topClientes, diario] = await Promise.all([
+  const [hoy, mes, colaboradores, topClientes, diario, tasaActual] = await Promise.all([
     getMetricasHoy(),
     getMetricasMes(year, month),
     getPerformanceColaboradores(inicio, fin),
     getTopClientes(10),
     getDailyMetrics(inicio, fin),
+    getCurrentRate(),
   ])
 
-  return { hoy, mes, colaboradores, topClientes, diario }
+  return { hoy, mes, colaboradores, topClientes, diario, tasaActual }
 }
