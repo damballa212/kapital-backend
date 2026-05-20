@@ -25,8 +25,14 @@ import { withAuth } from './middleware/auth.js'
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ─── MODO EXPRESS (VPS) ──────────────────────────────────────────────────────
-import { initializeApp } from 'firebase-admin/app'
-initializeApp()
+import { initializeApp, cert } from 'firebase-admin/app'
+import { env } from './config/env.js'
+
+if (env.FIREBASE_SERVICE_ACCOUNT) {
+  initializeApp({ credential: cert(JSON.parse(env.FIREBASE_SERVICE_ACCOUNT)) })
+} else {
+  initializeApp()
+}
 
 const app = express()
 app.use(express.json({ limit: '1mb' }))
