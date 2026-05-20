@@ -1,0 +1,33 @@
+{
+  "name": "kapital-backend",
+  "version": "1.0.0",
+  "description": "Kapital App — backend Express",
+  "type": "module",
+  "main": "lib/index.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node lib/index.js",
+    "dev": "node --watch lib/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "dotenv": "^16",
+    "express": "^4",
+    "firebase-admin": "^13",
+    "postgres": "^3",
+    "zod": "^3",
+    "exceljs": "^4",
+    "pdfkit": "^0.15"
+  },
+  "devDependencies": {
+    "typescript": "^5.9",
+    "@types/express": "^4",
+    "@types/pdfkit": "^0.13",
+    "vitest": "^3"
+  }
+}
