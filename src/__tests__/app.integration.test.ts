@@ -51,6 +51,35 @@ function evolutionPayload(content: string) {
   }
 }
 
+function envelopedPayload(content: string) {
+  return {
+    body: {
+      sender: '595974222999@s.whatsapp.net',
+      data: {
+        key: { remoteJid: '595981000000@s.whatsapp.net', id: 'MSG-N8N-HTTP-1' },
+        message: { conversation: content },
+        messageTimestamp: 1710000000,
+        pushName: 'Operador Test',
+      },
+    },
+  }
+}
+
+function lidPayload(content: string) {
+  return {
+    data: {
+      key: {
+        remoteJid: '163904676176039@lid',
+        remoteJidAlt: '595971525301@s.whatsapp.net',
+        id: 'MSG-LID-HTTP-1',
+      },
+      message: { extendedTextMessage: { text: content } },
+      messageTimestamp: 1710000002,
+      pushName: 'Gabriel Test',
+    },
+  }
+}
+
 describe('WhatsApp webhook HTTP integration', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -85,6 +114,42 @@ describe('WhatsApp webhook HTTP integration', () => {
       finish: true,
     }))
   })
+
+  it('accepts enveloped webhook payloads', async () => {
+    const res = await invokeApp(
+      createApp(),
+      'POST',
+      '/webhook/whatsapp',
+      envelopedPayload('#TRANSACCION Cliente Ana: 500$ - 15%')
+    )
+    await waitFor(() => procesarTransaccionMock.mock.calls.length > 0)
+
+    expect(res.status).toBe(200)
+    expect(createInboundMessageLogMock).toHaveBeenCalledWith(expect.objectContaining({
+      sourceShape: 'enveloped-webhook',
+      chatId: '595981000000@s.whatsapp.net',
+      rawChatId: '595981000000@s.whatsapp.net',
+    }), expect.any(Object))
+  })
+
+  it('uses remoteJidAlt as canonical chat id for lid payloads', async () => {
+    const res = await invokeApp(
+      createApp(),
+      'POST',
+      '/webhook/whatsapp',
+      lidPayload('#TRANSACCION Cliente Alvaro Torales 76,21$ - 15%')
+    )
+    await waitFor(() => procesarTransaccionMock.mock.calls.length > 0)
+
+    expect(res.status).toBe(200)
+    expect(createInboundMessageLogMock).toHaveBeenCalledWith(expect.objectContaining({
+      messageId: 'MSG-LID-HTTP-1',
+      chatId: '595971525301@s.whatsapp.net',
+      rawChatId: '163904676176039@lid',
+      alternateChatIds: ['163904676176039@lid'],
+      messageType: 'extendedTextMessage',
+    }), expect.any(Object))
+  })
 })
 
 async function invokeApp(
@@ -93,6 +158,9 @@ async function invokeApp(
   url: string,
   body?: unknown
 ): Promise<{ status: number; body: string }> {
+  const appWithHandle = app as unknown as {
+    handle(req: http.IncomingMessage, res: http.ServerResponse): void
+  }
   const socket = new Socket()
   const req = new http.IncomingMessage(socket)
   const res = new http.ServerResponse(req)
@@ -113,12 +181,12 @@ async function invokeApp(
 
   res.write = ((chunk: unknown, ...args: unknown[]) => {
     if (chunk) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)))
-    return originalWrite(chunk as never, ...args as never)
+    return originalWrite(chunk as Parameters<typeof originalWrite>[0], ...(args as []))
   }) as typeof res.write
 
   res.end = ((chunk?: unknown, ...args: unknown[]) => {
     if (chunk) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)))
-    return originalEnd(chunk as never, ...args as never)
+    return originalEnd(chunk as Parameters<typeof originalEnd>[0], ...(args as []))
   }) as typeof res.end
 
   const done = new Promise<{ status: number; body: string }>((resolve, reject) => {
@@ -126,7 +194,7 @@ async function invokeApp(
     res.on('error', reject)
   })
 
-  app.handle(req, res)
+  appWithHandle.handle(req, res)
   req.push(rawBody)
   req.push(null)
 

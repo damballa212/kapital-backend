@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { normalizeWhatsAppPayload } from '../services/webhook-normalizer.service.js'
+import { generarIdempotencyKey } from '../utils/idempotency.js'
 
 describe('normalizeWhatsAppPayload', () => {
   it('normaliza payload directo de Evolution', () => {
@@ -103,5 +104,13 @@ describe('normalizeWhatsAppPayload', () => {
 
   it('devuelve null si no encuentra contenido ni chat util', () => {
     expect(normalizeWhatsAppPayload({ foo: 'bar' })).toBeNull()
+  })
+
+  it('mantiene la misma idempotency key cuando messageId es estable', () => {
+    expect(generarIdempotencyKey('MSG-42', '163904676176039@lid', '1710000000', '#TASA 7300'))
+      .toBe('MSG-42')
+
+    expect(generarIdempotencyKey('MSG-42', '595981000000@s.whatsapp.net', '1710000000', '#TASA 7300'))
+      .toBe('MSG-42')
   })
 })
