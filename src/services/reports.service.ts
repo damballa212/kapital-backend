@@ -181,252 +181,232 @@ export async function generarExcel(filtros: FiltroReporte): Promise<Buffer> {
 
 // ── PDF ───────────────────────────────────────────────────────────────────────
 export async function generarPDF(filtros: FiltroReporte): Promise<Buffer> {
-  const rows  = await findTransactionsForExport(filtros)
+  const rows   = await findTransactionsForExport(filtros)
   const fields = resolveFields(filtros.fields)
 
-  // ── Paleta corporativa ────────────────────────────────────────────────────
-  type RGB = [number, number, number]
+  // Paleta — SOLO hex strings (PDFKit no acepta rgb() CSS ni rgba())
   const C = {
-    ink:        [13,  17,  23]  as RGB,  // texto principal
-    deepGreen:  [8,   42,  22]  as RGB,  // header bg
-    green:      [26,  92,  56]  as RGB,  // acentos tabla
-    accentLine: [46, 184,  92]  as RGB,  // línea decorativa bajo header
-    rowAlt:     [240, 249, 244] as RGB,  // fila alternada
-    borderLine: [210, 228, 218] as RGB,  // separadores
-    mutedText:  [100, 120, 110] as RGB,  // texto secundario
-    white:      [255, 255, 255] as RGB,
-    // métricas cards
-    cardBlue:   [12,  52,  96]  as RGB,
-    cardSlate:  [30,  35,  50]  as RGB,
-    cardEarth:  [60,  38,  16]  as RGB,
+    headerBg:   '#0A1F0F',  // verde casi negro para header
+    green:      '#1A5C38',  // verde corporativo
+    accent:     '#2EB85C',  // verde brillante para accents
+    rowAlt:     '#F2F8F4',  // fila alternada muy sutil
+    border:     '#D4E8DC',  // separadores
+    muted:      '#6B8C77',  // texto secundario
+    ink:        '#111A14',  // texto principal
+    white:      '#FFFFFF',
+    cardA:      '#0A1F0F',  // card transacciones
+    cardB:      '#0C2D5C',  // card volumen USD
+    cardC:      '#1A3A20',  // card comisión
+    cardD:      '#1A1A2E',  // card guaraníes
+    cardLabel:  '#7EC99A',  // label en card
+    cardSub:    '#A8C4B0',  // subtexto en card
   }
-  const rgb = (c: RGB) => `rgb(${c.join(',')})`
 
-  // ── Dimensiones ───────────────────────────────────────────────────────────
   const PAGE_W = 841.89
   const PAGE_H = 595.28
-  const LEFT   = 40
-  const USABLE = PAGE_W - LEFT * 2   // 762
-  const HDR_H  = 68
-  const FTR_Y  = PAGE_H - 28
-  const CONTENT_TOP = HDR_H + 14
+  const LEFT   = 44
+  const USABLE = PAGE_W - LEFT * 2
+  const HDR_H  = 64
+  const FTR_Y  = PAGE_H - 26
+  const CT     = HDR_H + 16  // content top
 
   const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 0, autoFirstPage: false })
   const chunks: Buffer[] = []
-  doc.on('data', (c: Buffer) => chunks.push(c))
+  doc.on('data', (b: Buffer) => chunks.push(b))
 
-  // ── Cálculo de anchos de columna ──────────────────────────────────────────
+  // ── Anchos de columna proporcionales ─────────────────────────────────────
   const PREF: Record<string, number> = {
-    id: 32, fecha: 68, cliente: 100, colaborador: 82, usd_total: 58,
-    comision: 44, usd_neto: 58, monto_gs: 64, com_colaborador_usd: 72,
-    com_gabriel_usd: 72, com_colaborador_gs: 72, com_gabriel_gs: 72,
-    tasa_usada: 58, observaciones: 90,
+    id: 30, fecha: 66, cliente: 96, colaborador: 80, usd_total: 56,
+    comision: 42, usd_neto: 56, monto_gs: 62, com_colaborador_usd: 70,
+    com_gabriel_usd: 70, com_colaborador_gs: 70, com_gabriel_gs: 70,
+    tasa_usada: 56, observaciones: 88,
   }
-  const totalPref = fields.reduce((s, f) => s + (PREF[f.key] ?? 60), 0)
-  const colWidths = fields.map(f => Math.floor((PREF[f.key] ?? 60) / totalPref * USABLE))
+  const prefSum  = fields.reduce((s, f) => s + (PREF[f.key] ?? 58), 0)
+  const colW     = fields.map(f => Math.floor((PREF[f.key] ?? 58) / prefSum * USABLE))
+  const colX     = (i: number) => LEFT + colW.slice(0, i).reduce((s, w) => s + w, 0)
 
-  function colX(i: number) { return LEFT + colWidths.slice(0, i).reduce((s, w) => s + w, 0) }
-
-  // ── Helpers de página ─────────────────────────────────────────────────────
-  let pageNum = 0
+  let pageNum    = 0
   let totalPages = 0
 
-  function drawPageShell(pg: number, total: number) {
-    // header bg
-    doc.rect(0, 0, PAGE_W, HDR_H).fill(rgb(C.deepGreen))
-    // línea de acento bajo header
-    doc.rect(0, HDR_H, PAGE_W, 3).fill(rgb(C.accentLine))
+  // ── Shell: header + footer ────────────────────────────────────────────────
+  function shell(pg: number, tot: number) {
+    // header background
+    doc.rect(0, 0, PAGE_W, HDR_H).fill(C.headerBg)
+    // accent stripe
+    doc.rect(0, HDR_H - 3, PAGE_W, 3).fill(C.accent)
 
-    // logo area — rectángulo blanco con "K"
-    doc.rect(LEFT, 12, 44, 44).fill(rgb(C.green))
-    doc.fillColor(rgb(C.white)).fontSize(22).font('Helvetica-Bold')
-      .text('K', LEFT, 18, { width: 44, align: 'center', lineBreak: false })
+    // ícono K
+    doc.rect(LEFT, 11, 42, 42).fill(C.green)
+    doc.fillColor(C.white).fontSize(21).font('Helvetica-Bold')
+      .text('K', LEFT, 17, { width: 42, align: 'center', lineBreak: false })
 
-    // título
-    doc.fillColor(rgb(C.white)).fontSize(17).font('Helvetica-Bold')
-      .text('KONTIGO', LEFT + 54, 15, { lineBreak: false })
-    doc.fontSize(8).font('Helvetica')
-      .text('Casa de Cambios  ·  Reporte de Transacciones', LEFT + 54, 36, { lineBreak: false })
+    // nombre y subtítulo
+    doc.fillColor(C.white).fontSize(18).font('Helvetica-Bold')
+      .text('KONTIGO', LEFT + 52, 13, { lineBreak: false })
+    doc.fillColor(C.cardSub).fontSize(8).font('Helvetica')
+      .text('Casa de Cambios  ·  Reporte de Transacciones', LEFT + 52, 35, { lineBreak: false })
 
-    // fecha generación — derecha
-    const genDate = new Date().toLocaleString('es-PY', { timeZone: TZ })
-    doc.fontSize(7).fillColor(rgb(C.accentLine))
-      .text(`Generado: ${genDate}`, PAGE_W - LEFT - 160, 20, { width: 160, align: 'right', lineBreak: false })
-    doc.fillColor(rgb(C.white))
-      .text(`Página ${pg} / ${total}`, PAGE_W - LEFT - 160, 33, { width: 160, align: 'right', lineBreak: false })
+    // fecha + página (derecha)
+    const gen = new Date().toLocaleString('es-PY', { timeZone: TZ })
+    doc.fillColor(C.cardLabel).fontSize(7)
+      .text(`Generado  ${gen}`, PAGE_W - LEFT - 200, 16, { width: 200, align: 'right', lineBreak: false })
+    doc.fillColor(C.white).fontSize(8).font('Helvetica-Bold')
+      .text(`${pg} / ${tot}`, PAGE_W - LEFT - 200, 30, { width: 200, align: 'right', lineBreak: false })
 
     // footer
-    doc.rect(LEFT, FTR_Y - 1, USABLE, 0.5).fill(rgb(C.borderLine))
-    doc.fillColor(rgb(C.mutedText)).fontSize(6.5).font('Helvetica')
-      .text('KONTIGO · Documento Confidencial · Uso Interno', LEFT, FTR_Y + 4, { lineBreak: false })
-    doc.text(`${pg} / ${total}`, PAGE_W - LEFT - 60, FTR_Y + 4,
-      { width: 60, align: 'right', lineBreak: false })
+    doc.rect(LEFT, FTR_Y - 2, USABLE, 0.5).fill(C.border)
+    doc.fillColor(C.muted).fontSize(6.5).font('Helvetica')
+      .text('KONTIGO  ·  Documento Confidencial  ·  Uso Interno', LEFT, FTR_Y + 3, { lineBreak: false })
+    doc.text(`Página ${pg} de ${tot}`, PAGE_W - LEFT - 100, FTR_Y + 3,
+      { width: 100, align: 'right', lineBreak: false })
   }
 
-  function drawTableHeader(y: number): number {
-    const rowH = 18
-    doc.rect(LEFT, y, USABLE, rowH).fill(rgb(C.green))
-    doc.fillColor(rgb(C.white)).fontSize(7).font('Helvetica-Bold')
+  // ── Encabezado de tabla de datos ──────────────────────────────────────────
+  const TH = 17
+  function tableHeader(y: number) {
+    doc.rect(LEFT, y, USABLE, TH).fill(C.green)
+    doc.fillColor(C.white).fontSize(6.8).font('Helvetica-Bold')
     fields.forEach((f, i) => {
       doc.text(f.label.toUpperCase(), colX(i) + 3, y + 5,
-        { width: colWidths[i] - 4, lineBreak: false })
+        { width: colW[i] - 4, lineBreak: false })
     })
-    doc.fillColor(rgb(C.ink)).font('Helvetica')
-    return y + rowH
+    doc.fillColor(C.ink).font('Helvetica')
+    return y + TH
   }
 
-  // ── Calcular total de páginas ─────────────────────────────────────────────
-  const ROW_H       = 13
-  const AVAIL_H     = FTR_Y - CONTENT_TOP - 6  // ~479
-  const ROWS_PER_P  = Math.floor((AVAIL_H - 18) / ROW_H)  // ~35
-  const dataPages   = rows.length > 0 ? Math.ceil(rows.length / ROWS_PER_P) : 1
-  totalPages        = 1 + dataPages  // 1 resumen + data pages
+  // ── Calcular paginación ───────────────────────────────────────────────────
+  const ROW_H     = 13
+  const AVAIL     = FTR_Y - CT - 4
+  const RPP       = Math.floor((AVAIL - TH) / ROW_H)  // rows per page
+  const dataPages = rows.length > 0 ? Math.ceil(rows.length / RPP) : 1
+  totalPages      = 1 + dataPages  // pág resumen + páginas de datos
 
   // ══════════════════════════════════════════════════════════════════════════
   // PÁGINA 1 — RESUMEN EJECUTIVO
   // ══════════════════════════════════════════════════════════════════════════
   pageNum = 1
   doc.addPage()
-  drawPageShell(pageNum, totalPages)
+  shell(pageNum, totalPages)
 
-  const totalUsd  = rows.reduce((s, r) => s + r.usdTotal, 0)
-  const totalGs   = rows.reduce((s, r) => s + r.montoGs, 0)
-  const comGab    = rows.reduce((s, r) => s + r.montoComisionGabrielUsd, 0)
-  const comColab  = rows.reduce((s, r) => s + r.montoColaboradorUsd, 0)
-  const avgTasa   = rows.length ? rows.reduce((s, r) => s + r.tasaUsada, 0) / rows.length : 0
+  const totUsd   = rows.reduce((s, r) => s + r.usdTotal, 0)
+  const totGs    = rows.reduce((s, r) => s + r.montoGs, 0)
+  const comGab   = rows.reduce((s, r) => s + r.montoComisionGabrielUsd, 0)
+  const comCol   = rows.reduce((s, r) => s + r.montoColaboradorUsd, 0)
+  const avgTasa  = rows.length ? rows.reduce((s, r) => s + r.tasaUsada, 0) / rows.length : 0
 
-  // título sección
-  const sy = CONTENT_TOP + 4
-  doc.fillColor(rgb(C.ink)).fontSize(13).font('Helvetica-Bold')
-    .text('RESUMEN EJECUTIVO', LEFT, sy)
-  doc.rect(LEFT, sy + 18, 120, 2).fill(rgb(C.accentLine))
+  // Título + underline accent
+  const SY = CT + 2
+  doc.fillColor(C.ink).fontSize(11).font('Helvetica-Bold')
+    .text('RESUMEN EJECUTIVO', LEFT, SY, { lineBreak: false })
+  doc.rect(LEFT, SY + 16, 108, 2).fill(C.accent)
 
-  // ── 4 métricas principales ────────────────────────────────────────────────
-  const CARD_W = 178; const CARD_H = 70; const CARD_Y = sy + 30; const CARD_GAP = 10
-  const metricCards = [
-    { label: 'TRANSACCIONES',   value: rows.length.toLocaleString('es-PY'), sub: 'registros en el período', color: C.deepGreen },
-    { label: 'VOLUMEN USD',      value: `$${formatUsd(totalUsd)}`,            sub: 'monto total operado',     color: C.cardBlue  },
-    { label: 'COM. GABRIEL',     value: `$${formatUsd(comGab)}`,              sub: 'comisión acumulada USD',  color: C.green     },
-    { label: 'GS ENTREGADOS',    value: formatGs(totalGs),                    sub: 'guaraníes entregados',    color: C.cardSlate },
+  // ── 4 cards de métricas ───────────────────────────────────────────────────
+  const CW = 181; const CH = 68; const CY = SY + 26; const CG = 8
+  const cards = [
+    { bg: C.cardA, label: 'TRANSACCIONES',  val: rows.length.toLocaleString('es-PY'), sub: 'registros en el período' },
+    { bg: C.cardB, label: 'VOLUMEN USD',    val: `$${formatUsd(totUsd)}`,             sub: 'monto total operado'    },
+    { bg: C.cardC, label: 'COM. GABRIEL',   val: `$${formatUsd(comGab)}`,             sub: 'comision acumulada USD' },
+    { bg: C.cardD, label: 'GS ENTREGADOS',  val: formatGs(Math.round(totGs)),         sub: 'guaranies entregados'   },
   ]
-  metricCards.forEach((c, i) => {
-    const x = LEFT + i * (CARD_W + CARD_GAP)
-    // sombra sutil
-    doc.rect(x + 2, CARD_Y + 2, CARD_W, CARD_H).fill('rgba(0,0,0,0.08)')
-    doc.rect(x, CARD_Y, CARD_W, CARD_H).fill(rgb(c.color))
-    // barra acento izquierda
-    doc.rect(x, CARD_Y, 4, CARD_H).fill(rgb(C.accentLine))
-    doc.fillColor(rgb(C.accentLine)).fontSize(7).font('Helvetica')
-      .text(c.label, x + 12, CARD_Y + 10, { lineBreak: false })
-    doc.fillColor(rgb(C.white)).fontSize(19).font('Helvetica-Bold')
-      .text(c.value, x + 12, CARD_Y + 22, { width: CARD_W - 16, lineBreak: false })
-    doc.fillColor('rgba(255,255,255,0.5)').fontSize(6.5).font('Helvetica')
-      .text(c.sub, x + 12, CARD_Y + 48, { lineBreak: false })
+  cards.forEach((c, i) => {
+    const x = LEFT + i * (CW + CG)
+    doc.rect(x, CY, CW, CH).fill(c.bg)
+    doc.rect(x, CY, 3, CH).fill(C.accent)           // barra izquierda
+    doc.fillColor(C.cardLabel).fontSize(6.5).font('Helvetica')
+      .text(c.label, x + 10, CY + 10, { lineBreak: false })
+    doc.fillColor(C.white).fontSize(18).font('Helvetica-Bold')
+      .text(c.val, x + 10, CY + 22, { width: CW - 14, lineBreak: false })
+    doc.fillColor(C.cardSub).fontSize(6).font('Helvetica')
+      .text(c.sub, x + 10, CY + 48, { lineBreak: false })
   })
 
-  // ── fila adicional de métricas ─────────────────────────────────────────────
-  const SM_Y = CARD_Y + CARD_H + 14
+  // ── Fila de métricas secundarias ──────────────────────────────────────────
+  const SMY  = CY + CH + 12
+  const dias = (filtros.startDate && filtros.endDate)
+    ? Math.max(1, Math.ceil((new Date(filtros.endDate).getTime() - new Date(filtros.startDate).getTime()) / 86400000) + 1)
+    : null
   const smItems = [
-    { label: 'Com. Colaboradores', value: `$${formatUsd(comColab)}` },
-    { label: 'Tasa promedio',      value: `${formatGs(Math.round(avgTasa))} Gs/$` },
-    { label: 'Período',            value: `${filtros.startDate ?? '—'} → ${filtros.endDate ?? '—'}` },
-    { label: 'Transac. / día',     value: filtros.startDate && filtros.endDate
-      ? (rows.length / Math.max(1, Math.ceil((new Date(filtros.endDate).getTime() - new Date(filtros.startDate).getTime()) / 86400000) + 1)).toFixed(1)
-      : '—'
-    },
+    { label: 'Com. Colaboradores', val: `$${formatUsd(comCol)}` },
+    { label: 'Tasa promedio',      val: `${formatGs(Math.round(avgTasa))} Gs/$` },
+    { label: 'Periodo',            val: `${filtros.startDate ?? '-'}  a  ${filtros.endDate ?? '-'}` },
+    { label: 'Transacciones / dia', val: dias ? (rows.length / dias).toFixed(1) : '-' },
   ]
-  const smW = USABLE / smItems.length
-  doc.rect(LEFT, SM_Y, USABLE, 0.5).fill(rgb(C.borderLine))
-  smItems.forEach((item, i) => {
-    const x = LEFT + i * smW
-    doc.fillColor(rgb(C.mutedText)).fontSize(7).font('Helvetica')
-      .text(item.label, x, SM_Y + 8, { lineBreak: false })
-    doc.fillColor(rgb(C.ink)).fontSize(11).font('Helvetica-Bold')
-      .text(item.value, x, SM_Y + 18, { width: smW - 8, lineBreak: false })
+  const SMW = USABLE / 4
+  doc.rect(LEFT, SMY, USABLE, 0.5).fill(C.border)
+  smItems.forEach((it, i) => {
+    const x = LEFT + i * SMW
+    doc.fillColor(C.muted).fontSize(6.8).font('Helvetica')
+      .text(it.label, x, SMY + 7, { width: SMW - 6, lineBreak: false })
+    doc.fillColor(C.ink).fontSize(10).font('Helvetica-Bold')
+      .text(it.val, x, SMY + 18, { width: SMW - 6, lineBreak: false })
   })
-  doc.rect(LEFT, SM_Y + 36, USABLE, 0.5).fill(rgb(C.borderLine))
+  doc.rect(LEFT, SMY + 34, USABLE, 0.5).fill(C.border)
 
-  // ── tabla desglose por colaborador ────────────────────────────────────────
-  const TBL_Y = SM_Y + 46
-  doc.fillColor(rgb(C.ink)).fontSize(9).font('Helvetica-Bold')
-    .text('DESGLOSE POR COLABORADOR', LEFT, TBL_Y)
+  // ── Tabla desglose por colaborador ────────────────────────────────────────
+  const TBLY = SMY + 44
+  doc.fillColor(C.ink).fontSize(8.5).font('Helvetica-Bold')
+    .text('DESGLOSE POR COLABORADOR', LEFT, TBLY, { lineBreak: false })
 
-  const byColab = new Map<string, { txs: number; usd: number; gs: number; com: number; comG: number }>()
+  const byC = new Map<string, { txs: number; usd: number; gs: number; com: number; comG: number }>()
   rows.forEach(r => {
-    const name = r.colaborador ?? 'Gabriel Zambrano'
-    const cur  = byColab.get(name) ?? { txs: 0, usd: 0, gs: 0, com: 0, comG: 0 }
-    byColab.set(name, {
-      txs: cur.txs + 1,
-      usd: cur.usd + r.usdTotal,
-      gs:  cur.gs  + r.montoGs,
-      com: cur.com + r.montoColaboradorUsd,
-      comG: cur.comG + r.montoComisionGabrielUsd,
-    })
+    const n = r.colaborador ?? 'Gabriel Zambrano'
+    const v = byC.get(n) ?? { txs: 0, usd: 0, gs: 0, com: 0, comG: 0 }
+    byC.set(n, { txs: v.txs + 1, usd: v.usd + r.usdTotal, gs: v.gs + r.montoGs,
+                 com: v.com + r.montoColaboradorUsd, comG: v.comG + r.montoComisionGabrielUsd })
   })
 
-  const COLAB_COLS = [180, 90, 110, 110, 110, 110]
-  const COLAB_HDRS = ['Colaborador', 'Transacciones', 'USD Movido', 'Com. Colaborador', 'Com. Gabriel', 'Gs Entregados']
-  let cy = TBL_Y + 14
+  const CC  = [174, 88, 108, 112, 112, 122]  // anchos cols colaborador
+  const CH2 = ['Colaborador', 'Transacciones', 'USD Movido', 'Com. Colaborador', 'Com. Gabriel', 'Gs Entregados']
+  let cy = TBLY + 14
 
-  // header tabla
-  doc.rect(LEFT, cy, USABLE, 15).fill(rgb(C.deepGreen))
-  doc.fillColor(rgb(C.white)).fontSize(7).font('Helvetica-Bold')
-  COLAB_HDRS.forEach((h, i) => {
-    const x = LEFT + COLAB_COLS.slice(0, i).reduce((s, w) => s + w, 0)
-    doc.text(h, x + 4, cy + 4, { width: COLAB_COLS[i] - 6, lineBreak: false })
+  doc.rect(LEFT, cy, USABLE, 16).fill(C.green)
+  doc.fillColor(C.white).fontSize(7).font('Helvetica-Bold')
+  CH2.forEach((h, i) => {
+    const x = LEFT + CC.slice(0, i).reduce((s, w) => s + w, 0)
+    doc.text(h, x + 4, cy + 4, { width: CC[i] - 6, lineBreak: false })
   })
-  cy += 15
+  cy += 16
 
-  let rowIdx = 0
-  byColab.forEach((v, name) => {
-    if (rowIdx % 2 === 0) doc.rect(LEFT, cy, USABLE, 14).fill(rgb(C.rowAlt))
-    doc.fillColor(rgb(C.ink)).fontSize(7.5).font('Helvetica')
-    const vals = [
-      name,
-      v.txs.toString(),
-      `$${formatUsd(v.usd)}`,
-      `$${formatUsd(v.com)}`,
-      `$${formatUsd(v.comG)}`,
-      `${formatGs(Math.round(v.gs))} Gs`,
-    ]
+  let ri = 0
+  byC.forEach((v, name) => {
+    if (ri % 2 === 0) doc.rect(LEFT, cy, USABLE, 14).fill(C.rowAlt)
+    doc.fillColor(C.ink).fontSize(7.5).font('Helvetica')
+    const vals = [name, String(v.txs), `$${formatUsd(v.usd)}`,
+                  `$${formatUsd(v.com)}`, `$${formatUsd(v.comG)}`,
+                  `${formatGs(Math.round(v.gs))} Gs`]
     vals.forEach((val, i) => {
-      const x = LEFT + COLAB_COLS.slice(0, i).reduce((s, w) => s + w, 0)
-      doc.text(val, x + 4, cy + 3, { width: COLAB_COLS[i] - 6, lineBreak: false })
+      const x = LEFT + CC.slice(0, i).reduce((s, w) => s + w, 0)
+      doc.text(val, x + 4, cy + 3, { width: CC[i] - 6, lineBreak: false })
     })
-    cy += 14
-    rowIdx++
+    cy += 14; ri++
   })
-  doc.rect(LEFT, cy, USABLE, 0.5).fill(rgb(C.borderLine))
+  doc.rect(LEFT, cy, USABLE, 0.5).fill(C.border)
 
   // ══════════════════════════════════════════════════════════════════════════
   // PÁGINAS DE DATOS
   // ══════════════════════════════════════════════════════════════════════════
-  let rowBuf = 0
-  let y      = CONTENT_TOP
+  let buf = 0
+  let y   = CT
 
   rows.forEach((r, idx) => {
-    if (rowBuf === 0) {
+    if (buf === 0) {
       pageNum++
       doc.addPage()
-      drawPageShell(pageNum, totalPages)
-      y = CONTENT_TOP
-      y = drawTableHeader(y)
+      shell(pageNum, totalPages)
+      y = CT
+      y = tableHeader(y)
     }
 
-    if (rowBuf % 2 === 1) doc.rect(LEFT, y, USABLE, ROW_H).fill(rgb(C.rowAlt))
-    doc.fillColor(rgb(C.ink)).fontSize(7).font('Helvetica')
+    if (buf % 2 === 1) doc.rect(LEFT, y, USABLE, ROW_H).fill(C.rowAlt)
+    doc.fillColor(C.ink).fontSize(7).font('Helvetica')
     fields.forEach((f, i) => {
-      const v = getFieldValue(r, f.key)
-      doc.text(String(v), colX(i) + 3, y + 3,
-        { width: colWidths[i] - 5, lineBreak: false })
+      doc.text(String(getFieldValue(r, f.key)), colX(i) + 3, y + 3,
+        { width: colW[i] - 5, lineBreak: false })
     })
 
-    y += ROW_H
-    rowBuf++
-    if (rowBuf >= ROWS_PER_P) rowBuf = 0
-
-    // línea separadora sutil cada 5 filas
-    if (idx % 5 === 4) doc.rect(LEFT, y, USABLE, 0.3).fill(rgb(C.borderLine))
+    y += ROW_H; buf++
+    if (buf >= RPP) buf = 0
+    if (idx % 5 === 4) doc.rect(LEFT, y, USABLE, 0.3).fill(C.border)
   })
 
   doc.end()
