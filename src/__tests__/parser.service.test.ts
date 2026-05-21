@@ -49,6 +49,27 @@ describe('parsearMensaje — #TRANSACCION', () => {
     expect(r).toMatchObject({ type: 'TRANSACCION', colaborador: 'NuevoNombre', overridePct: 7, usdTotal: 300, comisionPct: 13 })
   })
 
+  it('acepta transaccion sin dos puntos entre cliente y monto', () => {
+    const r = parsearMensaje('#TRANSACCION Cliente Alvaro Torales 76,21$ - 15%')
+    expect(r).toMatchObject({
+      type: 'TRANSACCION',
+      cliente: 'Alvaro Torales',
+      usdTotal: 76.21,
+      comisionPct: 15,
+    })
+  })
+
+  it('acepta colaborador sin dos puntos entre cliente y monto', () => {
+    const r = parsearMensaje('#TRANSACCION Colaborador Patty Cliente Juan Carlos 300$ - 13%')
+    expect(r).toMatchObject({
+      type: 'TRANSACCION',
+      colaborador: 'Patty',
+      cliente: 'Juan Carlos',
+      usdTotal: 300,
+      comisionPct: 13,
+    })
+  })
+
   it('con usd_neto y monto_gs opcionales', () => {
     const r = parsearMensaje('#TRANSACCION Cliente Juan: $1.500 - 13% = $1.305 = 9.526.500 Gs')
     expect(r).toMatchObject({ type: 'TRANSACCION', usdTotal: 1500, comisionPct: 13, usdNeto: 1305 })

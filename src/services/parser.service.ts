@@ -1,7 +1,7 @@
 import type { ParseResult } from '../domain/webhook.js'
 
 const TASA_RE = /#TASA\s+(\d+(?:[.,]\d+)?)/i
-const TX_RE = /^#TRANSACCION\s+(?:Colaborador\s+([\w\sáéíóúüñÁÉÍÓÚÜÑ]+?)(?:\s*\((\d+(?:\.\d+)?)%\))?\s+)?Cliente\s+([\w\sáéíóúüñÁÉÍÓÚÜÑ]+?)\s*:\s*\$?([\d.,]+)\$?\s*-\s*([\d.,]+)%(?:\s*=\s*\$?([\d.,]+))?(?:\s*=\s*([\d.,]+)\s*Gs)?/i
+const TX_RE = /^#TRANSACCION\s+(?:Colaborador\s+([\w\sáéíóúüñÁÉÍÓÚÜÑ]+?)(?:\s*\((\d+(?:\.\d+)?)%\))?\s+)?Cliente\s+([\w\sáéíóúüñÁÉÍÓÚÜÑ]+?)\s*(?::\s*|\s+)\$?([\d.,]+)\$?\s*-\s*([\d.,]+)%(?:\s*=\s*\$?([\d.,]+))?(?:\s*=\s*([\d.,]+)\s*Gs)?/i
 
 function parseNum(s: string): number {
   // Acepta "1.500", "7.300", "1500", "7300.50", "1.500,50", "1500.50"
@@ -31,14 +31,17 @@ Ej: #TASA 7300
 
 💸 *Registrar transacción:*
 #TRANSACCION Cliente [nombre]: [monto]$ - [%]
+#TRANSACCION Cliente [nombre] [monto]$ - [%]
 
 Ejemplos:
 • #TRANSACCION Cliente María: 500$ - 15%
 • #TRANSACCION Cliente Juan Pérez: 1.200$ - 13%
+• #TRANSACCION Cliente Alvaro Torales 76,21$ - 15%
 
 Con colaborador:
 • #TRANSACCION Colaborador Patty Cliente Ana: 300$ - 15%
 • #TRANSACCION Colaborador Anael(3%) Cliente Luis: 800$ - 15%
+• #TRANSACCION Colaborador Patty Cliente Juan Carlos 300$ - 13%
 
 Con resultado incluido (opcional):
 • #TRANSACCION Cliente Marta: 500$ - 15% = 425$ = 2.507.500 Gs
@@ -96,7 +99,7 @@ export function parsearMensaje(content: string): ParseResult {
   if (trimmed.toUpperCase().startsWith('#TRANSACCION')) {
     return {
       type: 'ERROR',
-      mensaje: `Formato de transacción incorrecto.\n\nFormatos válidos:\n• #TRANSACCION Cliente [nombre]: [monto]$ - [%]\n• #TRANSACCION Colaborador [nombre] Cliente [nombre]: [monto]$ - [%]\n• Con porcentaje override: Colaborador Anael(3%)\n\nEjemplos:\n• #TRANSACCION Cliente Ana: 500$ - 15%\n• #TRANSACCION Colaborador Patty Cliente Juan: 300$ - 13%\n\nEnviá #AYUDA para ver todos los formatos.`,
+      mensaje: `Formato de transacción incorrecto.\n\nFormatos válidos:\n• #TRANSACCION Cliente [nombre]: [monto]$ - [%]\n• #TRANSACCION Cliente [nombre] [monto]$ - [%]\n• #TRANSACCION Colaborador [nombre] Cliente [nombre]: [monto]$ - [%]\n• #TRANSACCION Colaborador [nombre] Cliente [nombre] [monto]$ - [%]\n• Con porcentaje override: Colaborador Anael(3%)\n\nEjemplos:\n• #TRANSACCION Cliente Ana: 500$ - 15%\n• #TRANSACCION Cliente Alvaro Torales 76,21$ - 15%\n• #TRANSACCION Colaborador Patty Cliente Juan: 300$ - 13%\n\nEnviá #AYUDA para ver todos los formatos.`,
     }
   }
 
