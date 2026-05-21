@@ -1,7 +1,7 @@
 import 'dotenv/config'
 import express from 'express'
 import { handleWhatsAppWebhook } from './handlers/webhook.handler.js'
-import { handleGetTransacciones } from './handlers/transactions.handler.js'
+import { handleGetTransacciones, handleDeleteTransaccion } from './handlers/transactions.handler.js'
 import { handleGetDashboard } from './handlers/dashboard.handler.js'
 import { handleExport, handleExportPreview } from './handlers/reports.handler.js'
 import { handleGetTasa, handleGetColaboradores } from './handlers/rates.handler.js'
@@ -39,7 +39,7 @@ const app = express()
 
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type')
   if (req.method === 'OPTIONS') return res.sendStatus(204)
   next()
@@ -48,7 +48,8 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '1mb' }))
 
 app.post('/webhook/whatsapp',  handleWhatsAppWebhook)
-app.get('/transactions',       withAuth(handleGetTransacciones))
+app.get('/transactions',           withAuth(handleGetTransacciones))
+app.delete('/transactions/:id',    withAuth(handleDeleteTransaccion))
 app.get('/dashboard',          withAuth(handleGetDashboard))
 app.get('/export/preview',     withAuth(handleExportPreview))
 app.get('/export',             withAuth(handleExport))

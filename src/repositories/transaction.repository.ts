@@ -231,3 +231,10 @@ export async function getDailyMetrics(inicio: string, fin: string): Promise<DiaM
     ORDER BY fecha ASC
   `
 }
+
+export async function deleteTransaction(id: number): Promise<boolean> {
+  const rows = await sql<[{ id: number }?]>`
+    DELETE FROM transactions WHERE id = ${id} RETURNING id
+  `
+  return rows.length > 0
+}
