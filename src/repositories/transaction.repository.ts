@@ -93,13 +93,41 @@ export async function findTransactionsForExport(filtros: FiltroReporte): Promise
   const rows = await sql<Record<string, unknown>[]>`
     SELECT * FROM transactions
     WHERE 1=1
-    ${filtros.startDate ? sql`AND fecha >= ${filtros.startDate}::timestamptz` : sql``}
-    ${filtros.endDate ? sql`AND fecha <= ${filtros.endDate}::timestamptz + INTERVAL '1 day'` : sql``}
+    ${filtros.startDate  ? sql`AND fecha >= ${filtros.startDate}::timestamptz` : sql``}
+    ${filtros.endDate    ? sql`AND fecha <= ${filtros.endDate}::timestamptz + INTERVAL '1 day'` : sql``}
     ${filtros.colaborador ? sql`AND LOWER(colaborador) = LOWER(${filtros.colaborador})` : sql``}
+    ${filtros.cliente    ? sql`AND LOWER(cliente) LIKE LOWER(${'%' + filtros.cliente + '%'})` : sql``}
+    ${filtros.minAmount  ? sql`AND usd_total >= ${filtros.minAmount}` : sql``}
+    ${filtros.maxAmount  ? sql`AND usd_total <= ${filtros.maxAmount}` : sql``}
     ORDER BY fecha DESC
     LIMIT 10000
   `
   return rows.map(mapRow)
+}
+
+export async function getExportPreview(filtros: FiltroReporte): Promise<{ total: number; totalUsd: number; totalGs: number; comisionGabrielUsd: number }> {
+  const rows = await sql<[{ total: string; total_usd: string; total_gs: string; comision_gabriel_usd: string }]>`
+    SELECT
+      COUNT(*)::text                                    AS total,
+      COALESCE(SUM(usd_total), 0)::text                AS total_usd,
+      COALESCE(SUM(monto_gs), 0)::text                 AS total_gs,
+      COALESCE(SUM(monto_comision_gabriel_usd), 0)::text AS comision_gabriel_usd
+    FROM transactions
+    WHERE 1=1
+    ${filtros.startDate  ? sql`AND fecha >= ${filtros.startDate}::timestamptz` : sql``}
+    ${filtros.endDate    ? sql`AND fecha <= ${filtros.endDate}::timestamptz + INTERVAL '1 day'` : sql``}
+    ${filtros.colaborador ? sql`AND LOWER(colaborador) = LOWER(${filtros.colaborador})` : sql``}
+    ${filtros.cliente    ? sql`AND LOWER(cliente) LIKE LOWER(${'%' + filtros.cliente + '%'})` : sql``}
+    ${filtros.minAmount  ? sql`AND usd_total >= ${filtros.minAmount}` : sql``}
+    ${filtros.maxAmount  ? sql`AND usd_total <= ${filtros.maxAmount}` : sql``}
+  `
+  const r = rows[0]
+  return {
+    total: parseInt(r.total, 10),
+    totalUsd: parseFloat(r.total_usd),
+    totalGs: parseFloat(r.total_gs),
+    comisionGabrielUsd: parseFloat(r.comision_gabriel_usd),
+  }
 }
 
 export async function getMetricasHoy(): Promise<MetricasHoy> {

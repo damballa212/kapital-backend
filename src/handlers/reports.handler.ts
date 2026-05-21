@@ -1,11 +1,28 @@
 
 import type { Request, Response } from 'express'
 import { generarCSV, generarExcel, generarPDF } from '../services/reports.service.js'
+import { getExportPreview } from '../repositories/transaction.repository.js'
 import type { FiltroReporte } from '../domain/transaction.js'
 
+export async function handleExportPreview(req: Request, res: Response): Promise<void> {
+  const { startDate, endDate, colaborador, cliente, minAmount, maxAmount } = req.query as Record<string, string>
+  const filtros: FiltroReporte = {
+    startDate, endDate, colaborador, cliente,
+    minAmount: minAmount ? parseFloat(minAmount) : undefined,
+    maxAmount: maxAmount ? parseFloat(maxAmount) : undefined,
+  }
+  const preview = await getExportPreview(filtros)
+  res.json(preview)
+}
+
 export async function handleExport(req: Request, res: Response): Promise<void> {
-  const { format, startDate, endDate, colaborador } = req.query as Record<string, string>
-  const filtros: FiltroReporte = { startDate, endDate, colaborador }
+  const { format, startDate, endDate, colaborador, cliente, minAmount, maxAmount, fields } = req.query as Record<string, string>
+  const filtros: FiltroReporte = {
+    startDate, endDate, colaborador, cliente,
+    minAmount: minAmount ? parseFloat(minAmount) : undefined,
+    maxAmount: maxAmount ? parseFloat(maxAmount) : undefined,
+    fields: fields ? fields.split(',') : undefined,
+  }
   const fecha = new Date().toISOString().slice(0, 10)
 
   switch (format) {

@@ -48,6 +48,10 @@ export type FiltroReporte = {
   startDate?: string
   endDate?: string
   colaborador?: string
+  cliente?: string
+  minAmount?: number
+  maxAmount?: number
+  fields?: string[]
 }
 
 export type MetricasHoy = {
