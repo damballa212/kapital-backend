@@ -11,6 +11,7 @@
     "build": "tsc",
     "start": "node lib/index.js",
     "dev": "node --watch lib/index.js",
+    "migrate": "tsc && node lib/scripts/migrate.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "tsc --noEmit"
