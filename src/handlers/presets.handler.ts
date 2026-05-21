@@ -14,7 +14,7 @@ export async function handleSavePreset(req: Request, res: Response): Promise<voi
   if (!config)       { res.status(400).json({ error: 'config requerido' }); return }
 
   const rows = await sql<[{ id: number }]>`
-    INSERT INTO export_presets (name, config) VALUES (${name.trim()}, ${sql.json(config as object)})
+    INSERT INTO export_presets (name, config) VALUES (${name.trim()}, ${JSON.stringify(config)})
     RETURNING id
   `
   res.status(201).json({ id: rows[0].id, name: name.trim(), config })
