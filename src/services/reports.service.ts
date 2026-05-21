@@ -2,7 +2,7 @@ import ExcelJS from 'exceljs'
 import PDFDocument from 'pdfkit'
 import { findTransactionsForExport } from '../repositories/transaction.repository.js'
 import type { FiltroReporte, Transaction } from '../domain/transaction.js'
-import { formatGs, formatUsd, formatPct } from '../utils/formatters.js'
+import { formatGs, formatUsd } from '../utils/formatters.js'
 
 const TZ = 'America/Asuncion'
 
@@ -74,7 +74,7 @@ export async function generarExcel(filtros: FiltroReporte): Promise<Buffer> {
   const rows = await findTransactionsForExport(filtros)
   const fields = resolveFields(filtros.fields)
   const wb = new ExcelJS.Workbook()
-  wb.creator = 'Kontigo'
+  wb.creator = 'Kapital'
 
   // ── Hoja 1: Transacciones ──
   const ws = wb.addWorksheet('Transacciones')
@@ -240,7 +240,7 @@ export async function generarPDF(filtros: FiltroReporte): Promise<Buffer> {
       .text('K', L, 16, { width: 42, align: 'center', lineBreak: false })
 
     doc.fillColor(WHITE).fontSize(19).font('Helvetica-Bold')
-      .text('KONTIGO', L + 52, 11, { lineBreak: false })
+      .text('KAPITAL', L + 52, 11, { lineBreak: false })
     doc.fillColor(HDRSUB).fontSize(8.5).font('Helvetica')
       .text('Casa de Cambios  ·  Reporte de Transacciones', L + 52, 33, { lineBreak: false })
 
@@ -252,7 +252,7 @@ export async function generarPDF(filtros: FiltroReporte): Promise<Buffer> {
 
     doc.rect(L, FTRY - 1, W, 0.5).fill(BORDER)
     doc.fillColor(MUTED).fontSize(7).font('Helvetica')
-      .text('KONTIGO  ·  Documento Confidencial  ·  Uso Interno', L, FTRY + 4, { lineBreak: false })
+      .text('KAPITAL  ·  Documento Confidencial  ·  Uso Interno', L, FTRY + 4, { lineBreak: false })
     doc.text(`Pagina ${pg} de ${tot}`, PW - L - 110, FTRY + 4, { width: 110, align: 'right', lineBreak: false })
   }
 

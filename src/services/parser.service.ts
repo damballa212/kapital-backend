@@ -23,14 +23,40 @@ function parseNum(s: string): number {
   return parseFloat(clean)
 }
 
+const AYUDA_MSG = `📋 *COMANDOS DISPONIBLES*
+
+💱 *Actualizar tasa:*
+#TASA [monto]
+Ej: #TASA 7300
+
+💸 *Registrar transacción:*
+#TRANSACCION Cliente [nombre]: [monto]$ - [%]
+
+Ejemplos:
+• #TRANSACCION Cliente María: 500$ - 15%
+• #TRANSACCION Cliente Juan Pérez: 1.200$ - 13%
+
+Con colaborador:
+• #TRANSACCION Colaborador Patty Cliente Ana: 300$ - 15%
+• #TRANSACCION Colaborador Anael(3%) Cliente Luis: 800$ - 15%
+
+Con resultado incluido (opcional):
+• #TRANSACCION Cliente Marta: 500$ - 15% = 425$ = 2.507.500 Gs
+
+Enviá *#AYUDA* en cualquier momento para ver esto.`
+
 export function parsearMensaje(content: string): ParseResult {
   const trimmed = content.trim()
+
+  if (trimmed.toUpperCase() === '#AYUDA') {
+    return { type: 'ERROR', mensaje: AYUDA_MSG }
+  }
 
   const tasaMatch = TASA_RE.exec(trimmed)
   if (tasaMatch) {
     const tasa = parseNum(tasaMatch[1])
     if (isNaN(tasa) || tasa <= 0) {
-      return { type: 'ERROR', mensaje: 'Tasa inválida. Ejemplo: #TASA 7300' }
+      return { type: 'ERROR', mensaje: 'La tasa ingresada no es válida.\n\nFormato correcto:\n#TASA [número]\n\nEjemplo: #TASA 7300' }
     }
     return { type: 'TASA', tasa }
   }
@@ -43,10 +69,10 @@ export function parsearMensaje(content: string): ParseResult {
     const comisionPct = parseNum(comisionPctStr)
 
     if (isNaN(usdTotal) || usdTotal <= 0) {
-      return { type: 'ERROR', mensaje: 'Monto USD inválido.' }
+      return { type: 'ERROR', mensaje: 'El monto en USD no es válido.\n\nEjemplo correcto:\n#TRANSACCION Cliente María: 500$ - 15%' }
     }
     if (isNaN(comisionPct) || comisionPct < 0 || comisionPct > 100) {
-      return { type: 'ERROR', mensaje: 'Porcentaje de comisión inválido.' }
+      return { type: 'ERROR', mensaje: 'El porcentaje de comisión no es válido (debe ser entre 0 y 100).\n\nEjemplo correcto:\n#TRANSACCION Cliente María: 500$ - 15%' }
     }
 
     return {
@@ -62,14 +88,20 @@ export function parsearMensaje(content: string): ParseResult {
   }
 
   if (trimmed.toUpperCase().startsWith('#TASA')) {
-    return { type: 'ERROR', mensaje: 'Formato incorrecto. Ejemplo: #TASA 7300' }
+    return {
+      type: 'ERROR',
+      mensaje: 'Formato de tasa incorrecto.\n\nCorrecto:\n#TASA [número]\n\nEjemplo: #TASA 7300',
+    }
   }
   if (trimmed.toUpperCase().startsWith('#TRANSACCION')) {
     return {
       type: 'ERROR',
-      mensaje: 'Formato incorrecto. Ejemplos:\n#TRANSACCION Cliente María: 500$ - 13%\n#TRANSACCION Colaborador Patty Cliente Juan: 500$ - 13%',
+      mensaje: `Formato de transacción incorrecto.\n\nFormatos válidos:\n• #TRANSACCION Cliente [nombre]: [monto]$ - [%]\n• #TRANSACCION Colaborador [nombre] Cliente [nombre]: [monto]$ - [%]\n• Con porcentaje override: Colaborador Anael(3%)\n\nEjemplos:\n• #TRANSACCION Cliente Ana: 500$ - 15%\n• #TRANSACCION Colaborador Patty Cliente Juan: 300$ - 13%\n\nEnviá #AYUDA para ver todos los formatos.`,
     }
   }
 
-  return { type: 'ERROR', mensaje: '❌ Comando no reconocido. Use #TASA o #TRANSACCION.' }
+  return {
+    type: 'ERROR',
+    mensaje: `Comando no reconocido: "${trimmed.slice(0, 20)}"\n\nComandos disponibles:\n• #TASA\n• #TRANSACCION\n• #AYUDA`,
+  }
 }
