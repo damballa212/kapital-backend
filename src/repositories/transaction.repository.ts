@@ -233,8 +233,16 @@ export async function getDailyMetrics(inicio: string, fin: string): Promise<DiaM
 }
 
 export async function deleteTransaction(id: number): Promise<boolean> {
-  const rows = await sql<[{ id: number }?]>`
-    DELETE FROM transactions WHERE id = ${id} RETURNING id
+  // Guarda snapshot antes de borrar para auditoría
+  const existing = await sql<Record<string, unknown>[]>`
+    SELECT * FROM transactions WHERE id = ${id}
   `
-  return rows.length > 0
+  if (existing.length === 0) return false
+
+  await sql`
+    INSERT INTO transaction_audit_log (transaction_id, action, snapshot)
+    VALUES (${id}, 'DELETE', ${JSON.stringify(existing[0])})
+  `
+  await sql`DELETE FROM transactions WHERE id = ${id}`
+  return true
 }
