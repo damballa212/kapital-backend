@@ -53,6 +53,12 @@ function resolveFields(requested?: string[]) {
   return ALL_FIELDS.filter(f => requested.includes(f.key))
 }
 
+function csvCell(value: string | number): string | number {
+  if (typeof value !== 'string') return value
+  if (!/[",\n\r]/.test(value)) return value
+  return `"${value.replace(/"/g, '""')}"`
+}
+
 // ── CSV ───────────────────────────────────────────────────────────────────────
 export async function generarCSV(filtros: FiltroReporte): Promise<string> {
   const rows = await findTransactionsForExport(filtros)
@@ -62,7 +68,7 @@ export async function generarCSV(filtros: FiltroReporte): Promise<string> {
     ...rows.map(r =>
       fields.map(f => {
         const v = getFieldValue(r, f.key)
-        return typeof v === 'string' && v.includes(',') ? `"${v}"` : v
+        return csvCell(v)
       }).join(',')
     ),
   ]

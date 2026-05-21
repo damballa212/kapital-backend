@@ -19,9 +19,7 @@ type Handler = (req: Request, res: Response) => Promise<void>
 
 export function withAuth(handler: Handler): Handler {
   return async (req, res) => {
-    await new Promise<void>((resolve, reject) => {
-      requireAuth(req, res, () => resolve()).catch(reject)
-    })
+    await requireAuth(req, res, () => undefined)
     if (res.headersSent) return
     try {
       await handler(req, res)
