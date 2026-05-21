@@ -5,7 +5,7 @@ import { procesarTransaccion } from '../services/transaction.service.js'
 import { setTasa, getTasaVigente } from '../services/rate.service.js'
 import { enviarConfirmacionTransaccion, enviarConfirmacionTasa, enviarError } from '../services/whatsapp.service.js'
 import { superaRateLimit } from '../utils/rateLimit.js'
-import type { WhatsAppPayload } from '../domain/webhook.js'
+import { normalizeWhatsAppPayload } from '../services/webhook-normalizer.service.js'
 import {
   createInboundMessageLog,
   recordWebhookFlowEvent,
@@ -13,35 +13,24 @@ import {
 } from '../repositories/whatsappLog.repository.js'
 import type { WhatsappInboundStatus } from '../domain/whatsappLog.js'
 
-function extraerPayload(body: Record<string, unknown>): WhatsAppPayload | null {
-  try {
-    const data = body?.data as Record<string, unknown>
-    const key = data?.key as Record<string, unknown>
-    const message = data?.message as Record<string, unknown>
-    const content = (message?.conversation as string) ?? (message?.extendedTextMessage as Record<string, unknown>)?.text as string
-    const chatId = key?.remoteJid as string
-    const messageId = key?.id as string
-    const timestamp = String((data?.messageTimestamp as number) ?? Date.now())
-    const userName = (data?.pushName as string) ?? ''
-
-    if (!chatId || !content || !messageId) return null
-    return { chatId, content, messageId, timestamp, userName }
-  } catch {
-    return null
-  }
-}
-
 export async function handleWhatsAppWebhook(req: Request, res: Response): Promise<void> {
   // Evolution API espera 200 siempre para no reintentar
   res.sendStatus(200)
 
-  const payload = extraerPayload(req.body as Record<string, unknown>)
+  const payload = normalizeWhatsAppPayload(req.body as Record<string, unknown>)
   if (!payload) return
   const messageLogId = await createInboundMessageLog(payload, req.body as Record<string, unknown>)
   await recordWebhookFlowEvent(messageLogId, {
     stage: 'received',
     status: 'ok',
-    details: { chatId: payload.chatId, messageId: payload.messageId },
+    details: {
+      chatId: payload.chatId,
+      rawChatId: payload.rawChatId,
+      alternateChatIds: payload.alternateChatIds,
+      messageId: payload.messageId,
+      sourceShape: payload.sourceShape,
+      messageType: payload.messageType,
+    },
   })
 
   // Ignorar mensajes propios o de grupos

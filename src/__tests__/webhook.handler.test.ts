@@ -49,6 +49,50 @@ function makeReq(content: string): Request {
   } as Request
 }
 
+function makeEnvelopedReq(content: string): Request {
+  return {
+    body: {
+      body: {
+        sender: '595974222999@s.whatsapp.net',
+        data: {
+          key: { remoteJid: '595981000000@s.whatsapp.net', id: 'MSG-N8N-1' },
+          message: { conversation: content },
+          messageTimestamp: 1710000000,
+          pushName: 'Operador n8n',
+        },
+      },
+    },
+  } as Request
+}
+
+function makeLidReq(content: string): Request {
+  return {
+    body: {
+      data: {
+        key: {
+          remoteJid: '163904676176039@lid',
+          remoteJidAlt: '595971525301@s.whatsapp.net',
+          id: 'MSG-LID-2',
+        },
+        message: { conversation: content },
+        messageTimestamp: 1710000001,
+      },
+    },
+  } as Request
+}
+
+function makeTimestampFallbackReq(content: string): Request {
+  return {
+    body: {
+      data: {
+        key: { remoteJid: '595981000000@s.whatsapp.net' },
+        message: { conversation: content },
+        messageTimestamp: 1710000099,
+      },
+    },
+  } as Request
+}
+
 function makeRes(): Response {
   return {
     sendStatus: vi.fn(),
@@ -117,5 +161,46 @@ describe('handleWhatsAppWebhook tracing', () => {
       transactionId: 42,
       errorMessage: 'Evolution timeout',
     }))
+  })
+
+  it('processes enveloped webhook payloads from legacy n8n shape', async () => {
+    await handleWhatsAppWebhook(
+      makeEnvelopedReq('#TRANSACCION Cliente Ana: 500$ - 15%'),
+      makeRes()
+    )
+
+    expect(createInboundMessageLogMock).toHaveBeenCalledWith(expect.objectContaining({
+      chatId: '595981000000@s.whatsapp.net',
+      rawChatId: '595981000000@s.whatsapp.net',
+      sourceShape: 'enveloped-webhook',
+    }), expect.any(Object))
+  })
+
+  it('prefers remoteJidAlt for business flow when remoteJid is lid', async () => {
+    await handleWhatsAppWebhook(
+      makeLidReq('#TRANSACCION Cliente Ana: 500$ - 15%'),
+      makeRes()
+    )
+
+    expect(procesarTransaccionMock).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({
+        chatId: '595971525301@s.whatsapp.net',
+        rawChatId: '163904676176039@lid',
+        alternateChatIds: ['163904676176039@lid'],
+      }),
+      7300
+    )
+  })
+
+  it('uses messageTimestamp when key.id is missing', async () => {
+    await handleWhatsAppWebhook(
+      makeTimestampFallbackReq('#TASA 7300'),
+      makeRes()
+    )
+
+    expect(createInboundMessageLogMock).toHaveBeenCalledWith(expect.objectContaining({
+      messageId: '1710000099',
+    }), expect.any(Object))
   })
 })
