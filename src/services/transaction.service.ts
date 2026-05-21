@@ -72,9 +72,10 @@ export async function procesarTransaccion(
 ): Promise<ComisionesCalculadas> {
   const comisiones = calcularComisiones(parsed, tasa)
   const idempotencyKey = generarIdempotencyKey(meta.messageId, meta.chatId, meta.timestamp)
+  let transactionId: number | undefined
 
   await sql.begin(async (tx: TransactionSql) => {
-    await insertTransaction({
+    transactionId = await insertTransaction({
       idempotencyKey,
       fecha: new Date(),
       chatId: meta.chatId,
@@ -110,5 +111,5 @@ export async function procesarTransaccion(
     `
   })
 
-  return comisiones
+  return { ...comisiones, transactionId }
 }

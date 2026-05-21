@@ -12,6 +12,7 @@ export type ComisionesCalculadas = {
   cliente: string
   usdTotal: number
   comisionPct: number
+  transactionId?: number
 }
 
 export type Transaction = {

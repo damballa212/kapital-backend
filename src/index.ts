@@ -6,6 +6,7 @@ import { handleGetDashboard } from './handlers/dashboard.handler.js'
 import { handleExport, handleExportPreview } from './handlers/reports.handler.js'
 import { handleGetTasa, handleGetColaboradores } from './handlers/rates.handler.js'
 import { handleGetPresets, handleSavePreset, handleDeletePreset } from './handlers/presets.handler.js'
+import { handleGetWebhookMessage, handleGetWebhookMessages } from './handlers/webhookMessages.handler.js'
 import { withAuth } from './middleware/auth.js'
 
 // ─── MODO FIREBASE FUNCTIONS ─────────────────────────────────────────────────
@@ -23,6 +24,8 @@ import { withAuth } from './middleware/auth.js'
 // export const getExport        = onRequest({ region: REGION, timeoutSeconds: 120 }, withAuth(handleExport))
 // export const getTasaActual    = onRequest({ region: REGION }, withAuth(handleGetTasa))
 // export const getColaboradores = onRequest({ region: REGION }, withAuth(handleGetColaboradores))
+// export const getWebhookMessages = onRequest({ region: REGION }, withAuth(handleGetWebhookMessages))
+// export const getWebhookMessage  = onRequest({ region: REGION }, withAuth(handleGetWebhookMessage))
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ─── MODO EXPRESS (VPS) ──────────────────────────────────────────────────────
@@ -48,6 +51,8 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '1mb' }))
 
 app.post('/webhook/whatsapp',  handleWhatsAppWebhook)
+app.get('/webhook/messages',   withAuth(handleGetWebhookMessages))
+app.get('/webhook/messages/:id', withAuth(handleGetWebhookMessage))
 app.get('/transactions',           withAuth(handleGetTransacciones))
 app.delete('/transactions/:id',    withAuth(handleDeleteTransaccion))
 app.get('/dashboard',          withAuth(handleGetDashboard))
