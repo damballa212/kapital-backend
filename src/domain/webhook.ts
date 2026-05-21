@@ -1,9 +1,18 @@
+export type WhatsAppPayloadSourceShape =
+  | 'direct-evolution'
+  | 'enveloped-webhook'
+  | 'flat-normalized'
+
 export type WhatsAppPayload = {
   chatId: string
+  rawChatId: string
+  alternateChatIds: string[]
   content: string
   messageId: string
   timestamp: string
   userName: string
+  messageType: string
+  sourceShape: WhatsAppPayloadSourceShape
 }
 
 export type ParsedTasa = {
