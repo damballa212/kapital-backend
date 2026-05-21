@@ -20,6 +20,23 @@ const VALID_STATUSES = new Set([
 
 const VALID_TYPES = new Set(['TRANSACCION', 'TASA', 'ERROR', 'AYUDA'])
 
+function isMissingWebhookTablesError(error: unknown): boolean {
+  return Boolean(
+    error &&
+    typeof error === 'object' &&
+    'code' in error &&
+    (error as { code?: string }).code === '42P01'
+  )
+}
+
+function sendWebhookSetupRequired(res: Response): void {
+  res.status(503).json({
+    error: 'Monitor WhatsApp pendiente de migracion',
+    setupRequired: true,
+    migration: '002_whatsapp_inbound_monitor.sql',
+  })
+}
+
 export async function handleGetWebhookMessages(req: Request, res: Response): Promise<void> {
   const { startDate, endDate, q } = req.query as Record<string, string>
   const page = Math.max(1, parseInt((req.query.page as string) ?? '1', 10))
@@ -35,10 +52,20 @@ export async function handleGetWebhookMessages(req: Request, res: Response): Pro
     : undefined
 
   const filters = { page, limit, startDate, endDate, status, parsedType, q }
-  const [result, summary] = await Promise.all([
-    findInboundMessages(filters),
-    getInboundMessageSummary(filters),
-  ])
+  let result
+  let summary
+  try {
+    [result, summary] = await Promise.all([
+      findInboundMessages(filters),
+      getInboundMessageSummary(filters),
+    ])
+  } catch (error) {
+    if (isMissingWebhookTablesError(error)) {
+      sendWebhookSetupRequired(res)
+      return
+    }
+    throw error
+  }
 
   res.json({
     data: result.data,
@@ -56,7 +83,16 @@ export async function handleGetWebhookMessage(req: Request, res: Response): Prom
   const id = parseInt(req.params.id, 10)
   if (isNaN(id)) { res.status(400).json({ error: 'id invalido' }); return }
 
-  const detail = await getInboundMessageDetail(id)
+  let detail
+  try {
+    detail = await getInboundMessageDetail(id)
+  } catch (error) {
+    if (isMissingWebhookTablesError(error)) {
+      sendWebhookSetupRequired(res)
+      return
+    }
+    throw error
+  }
   if (!detail) { res.status(404).json({ error: 'Mensaje no encontrado' }); return }
 
   res.json(detail)
