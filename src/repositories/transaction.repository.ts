@@ -117,8 +117,8 @@ export async function getMetricasHoy(): Promise<MetricasHoy> {
       COALESCE(SUM(monto_comision_gabriel_usd), 0)::text AS comision_gabriel_usd,
       COALESCE(SUM(monto_comision_gabriel_gs), 0)::text  AS comision_gabriel_gs
     FROM transactions
-    WHERE fecha >= CURRENT_DATE
-      AND fecha < CURRENT_DATE + INTERVAL '1 day'
+    WHERE fecha >= DATE_TRUNC('day', NOW() AT TIME ZONE 'America/Asuncion') AT TIME ZONE 'America/Asuncion'
+      AND fecha <  DATE_TRUNC('day', NOW() AT TIME ZONE 'America/Asuncion') AT TIME ZONE 'America/Asuncion' + INTERVAL '1 day'
   `
   const r = rows[0]
   return {
@@ -145,8 +145,8 @@ export async function getMetricasMes(year: number, month: number): Promise<Metri
       COALESCE(SUM(monto_comision_gabriel_usd), 0)::text AS comision_gabriel_usd,
       COALESCE(SUM(monto_comision_gabriel_gs), 0)::text  AS comision_gabriel_gs
     FROM transactions
-    WHERE EXTRACT(YEAR  FROM fecha) = ${year}
-      AND EXTRACT(MONTH FROM fecha) = ${month}
+    WHERE EXTRACT(YEAR  FROM fecha AT TIME ZONE 'America/Asuncion') = ${year}
+      AND EXTRACT(MONTH FROM fecha AT TIME ZONE 'America/Asuncion') = ${month}
   `
   const r = rows[0]
   return {
@@ -194,12 +194,12 @@ export async function getTopClientes(limit: number): Promise<ClienteMetrica[]> {
 export async function getDailyMetrics(inicio: string, fin: string): Promise<DiaMetrica[]> {
   return sql<DiaMetrica[]>`
     SELECT
-      DATE(fecha)::text        AS fecha,
+      DATE(fecha AT TIME ZONE 'America/Asuncion')::text AS fecha,
       COUNT(*)::int            AS "totalTransacciones",
       COALESCE(SUM(usd_total), 0)::float AS "totalUsd"
     FROM transactions
     WHERE fecha BETWEEN ${inicio}::timestamptz AND ${fin}::timestamptz
-    GROUP BY DATE(fecha)
+    GROUP BY DATE(fecha AT TIME ZONE 'America/Asuncion')
     ORDER BY fecha ASC
   `
 }
