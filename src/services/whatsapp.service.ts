@@ -1,6 +1,7 @@
 import { env } from '../config/env.js'
 import { formatGs, formatUsd, formatPct } from '../utils/formatters.js'
 import type { ComisionesCalculadas } from '../domain/transaction.js'
+import type { ResumenHoy, ResumenColaboradorMes } from '../repositories/transaction.repository.js'
 
 async function enviarMensaje(chatId: string, texto: string): Promise<void> {
   const url = `${env.EVOLUTION_API_URL}/message/sendText/${env.EVOLUTION_INSTANCE}`
@@ -65,4 +66,50 @@ export async function enviarConfirmacionTasa(chatId: string, tasa: number): Prom
 
 export async function enviarError(chatId: string, mensaje: string): Promise<void> {
   await enviarMensaje(chatId, `❌ ${mensaje}`)
+}
+
+export async function enviarResumenHoy(chatId: string, r: ResumenHoy): Promise<void> {
+  const ahora = new Date().toLocaleString('es-PY', {
+    timeZone: 'America/Asuncion',
+    day: '2-digit', month: '2-digit', year: 'numeric',
+  })
+
+  const lineas = [
+    `📊 *RESUMEN DE HOY — ${ahora}*`,
+    '',
+    `💳 Transacciones: ${r.totalTransacciones}`,
+    `💵 USD operado:   $${formatUsd(r.totalUsd)}`,
+    `💰 Gs entregados: ${formatGs(r.totalGs)} Gs`,
+    `💱 Tasa actual:   ${r.tasaActual ? formatGs(r.tasaActual) + ' Gs/USD' : 'no definida'}`,
+  ]
+
+  if (r.porColaborador.length > 1) {
+    lineas.push('', '👥 Por colaborador:')
+    for (const c of r.porColaborador) {
+      lineas.push(`• ${c.colaborador}: ${c.count} tx`)
+    }
+  }
+
+  lineas.push('', `🏦 Comisión Gabriel: $${formatUsd(r.comisionGabrielUsd)} USD`)
+
+  await enviarMensaje(chatId, lineas.join('\n'))
+}
+
+export async function enviarResumenYo(chatId: string, r: ResumenColaboradorMes): Promise<void> {
+  const lineas = [
+    `👤 *TUS COMISIONES — ${r.mes.toUpperCase()}*`,
+    '',
+    `📊 Transacciones: ${r.totalTransacciones}`,
+    `💵 USD operado:   $${formatUsd(r.totalUsdOperado)}`,
+    '',
+    `💰 Tu comisión:`,
+    `   $${formatUsd(r.comisionUsd)} USD`,
+    `   ${formatGs(r.comisionGs)} Gs`,
+  ]
+
+  if (r.totalTransacciones === 0) {
+    lineas.push('', '_(sin movimientos este mes)_')
+  }
+
+  await enviarMensaje(chatId, lineas.join('\n'))
 }

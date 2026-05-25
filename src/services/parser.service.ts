@@ -55,6 +55,14 @@ export function parsearMensaje(content: string): ParseResult {
     return { type: 'ERROR', mensaje: AYUDA_MSG }
   }
 
+  if (trimmed.toUpperCase() === '#HOY') {
+    return { type: 'HOY' }
+  }
+
+  if (trimmed.toUpperCase() === '#YO') {
+    return { type: 'YO' }
+  }
+
   const tasaMatch = TASA_RE.exec(trimmed)
   if (tasaMatch) {
     const tasa = parseNum(tasaMatch[1])

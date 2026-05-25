@@ -11,7 +11,7 @@ export type WhatsappInboundStatus =
 
 export type WhatsappFlowEventStatus = 'ok' | 'failed' | 'skipped'
 
-export type WhatsappParsedType = 'TRANSACCION' | 'TASA' | 'ERROR' | 'AYUDA' | null
+export type WhatsappParsedType = 'TRANSACCION' | 'TASA' | 'HOY' | 'YO' | 'ERROR' | 'AYUDA' | null
 
 export type WhatsappInboundMessage = {
   id: number

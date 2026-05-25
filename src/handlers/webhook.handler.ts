@@ -3,9 +3,19 @@ import type { Request, Response } from 'express'
 import { parsearMensaje } from '../services/parser.service.js'
 import { procesarTransaccion } from '../services/transaction.service.js'
 import { setTasa, getTasaVigente } from '../services/rate.service.js'
-import { enviarConfirmacionTransaccion, enviarConfirmacionTasa, enviarError } from '../services/whatsapp.service.js'
+import {
+  enviarConfirmacionTransaccion,
+  enviarConfirmacionTasa,
+  enviarResumenHoy,
+  enviarResumenYo,
+  enviarError,
+} from '../services/whatsapp.service.js'
 import { superaRateLimit } from '../utils/rateLimit.js'
 import { normalizeWhatsAppPayload } from '../services/webhook-normalizer.service.js'
+import { getCurrentRate } from '../repositories/rate.repository.js'
+import { getResumenHoy, getResumenColaboradorMes } from '../repositories/transaction.repository.js'
+import { findCollaboratorByName } from '../repositories/collaborator.repository.js'
+import { resolverColaborador } from '../services/transaction.service.js'
 import {
   createInboundMessageLog,
   recordWebhookFlowEvent,
@@ -103,6 +113,49 @@ export async function handleWhatsAppWebhook(req: Request, res: Response): Promis
         parsedType: 'TASA',
         finish: true,
       })
+      return
+    }
+
+    if (parsed.type === 'HOY') {
+      const tasaActual = await getCurrentRate()
+      const resumen = await getResumenHoy(tasaActual)
+      await enviarResumenHoy(payload.chatId, resumen)
+      await recordWebhookFlowEvent(messageLogId, { stage: 'hoy_sent', status: 'ok', details: { totalTransacciones: resumen.totalTransacciones } })
+      await updateInboundMessageLog(messageLogId, { status: 'confirmation_sent', flowStage: 'hoy_sent', parsedType: 'HOY', finish: true })
+      return
+    }
+
+    if (parsed.type === 'YO') {
+      const now = new Date()
+      const year  = now.getFullYear()
+      const month = now.getMonth() + 1
+
+      // Identificar al colaborador por userName (pushName de WhatsApp)
+      const userName = payload.userName || ''
+      const dbColab = await findCollaboratorByName(userName)
+      let nombre: string
+      let esGabriel: boolean
+
+      if (dbColab) {
+        nombre    = dbColab.name
+        esGabriel = dbColab.basePctUsdTotal === 0
+      } else {
+        // Fallback al resolver hardcodeado
+        try {
+          const resolved = resolverColaborador(userName || null, 13, null)
+          nombre    = resolved.colaborador
+          esGabriel = resolved.pct === 0
+        } catch {
+          await enviarError(payload.chatId, 'No te reconozco como colaborador. Asegurate de que tu nombre en WhatsApp coincida con el registrado.')
+          await updateInboundMessageLog(messageLogId, { status: 'parse_error', flowStage: 'yo_not_found', parsedType: 'YO', errorMessage: 'colaborador no identificado', finish: true })
+          return
+        }
+      }
+
+      const resumen = await getResumenColaboradorMes(nombre, esGabriel, year, month)
+      await enviarResumenYo(payload.chatId, resumen)
+      await recordWebhookFlowEvent(messageLogId, { stage: 'yo_sent', status: 'ok', details: { nombre } })
+      await updateInboundMessageLog(messageLogId, { status: 'confirmation_sent', flowStage: 'yo_sent', parsedType: 'YO', finish: true })
       return
     }
 

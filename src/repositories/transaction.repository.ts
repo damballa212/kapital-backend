@@ -232,6 +232,118 @@ export async function getDailyMetrics(inicio: string, fin: string): Promise<DiaM
   `
 }
 
+export type ResumenHoy = {
+  totalTransacciones: number
+  totalUsd: number
+  totalGs: number
+  comisionGabrielUsd: number
+  comisionGabrielGs: number
+  tasaActual: number | null
+  porColaborador: Array<{ colaborador: string; count: number; comisionUsd: number; comisionGs: number }>
+}
+
+export type ResumenColaboradorMes = {
+  nombre: string
+  mes: string
+  totalTransacciones: number
+  totalUsdOperado: number
+  comisionUsd: number
+  comisionGs: number
+}
+
+export async function getResumenHoy(tasaActual: number | null): Promise<ResumenHoy> {
+  const hoyFilter = sql`
+    fecha >= DATE_TRUNC('day', NOW() AT TIME ZONE 'America/Asuncion') AT TIME ZONE 'America/Asuncion'
+    AND fecha <  DATE_TRUNC('day', NOW() AT TIME ZONE 'America/Asuncion') AT TIME ZONE 'America/Asuncion' + INTERVAL '1 day'
+  `
+
+  const [totales, porColab] = await Promise.all([
+    sql<[{
+      total: string; total_usd: string; total_gs: string
+      com_gabriel_usd: string; com_gabriel_gs: string
+    }]>`
+      SELECT
+        COUNT(*)::text                                        AS total,
+        COALESCE(SUM(usd_total), 0)::text                    AS total_usd,
+        COALESCE(SUM(monto_gs), 0)::text                     AS total_gs,
+        COALESCE(SUM(monto_comision_gabriel_usd), 0)::text   AS com_gabriel_usd,
+        COALESCE(SUM(monto_comision_gabriel_gs), 0)::text    AS com_gabriel_gs
+      FROM transactions WHERE ${hoyFilter}
+    `,
+    sql<Array<{ colaborador: string | null; count: string; com_usd: string; com_gs: string }>>`
+      SELECT
+        COALESCE(colaborador, 'Gabriel Zambrano')             AS colaborador,
+        COUNT(*)::text                                        AS count,
+        COALESCE(SUM(monto_colaborador_usd), 0)::text        AS com_usd,
+        COALESCE(SUM(monto_colaborador_gs), 0)::text         AS com_gs
+      FROM transactions WHERE ${hoyFilter}
+      GROUP BY colaborador
+      ORDER BY count DESC
+    `,
+  ])
+
+  const r = totales[0]
+  return {
+    totalTransacciones: parseInt(r.total, 10),
+    totalUsd: parseFloat(r.total_usd),
+    totalGs: parseFloat(r.total_gs),
+    comisionGabrielUsd: parseFloat(r.com_gabriel_usd),
+    comisionGabrielGs: parseFloat(r.com_gabriel_gs),
+    tasaActual,
+    porColaborador: porColab.map(c => ({
+      colaborador: c.colaborador ?? 'Gabriel Zambrano',
+      count: parseInt(c.count, 10),
+      comisionUsd: parseFloat(c.com_usd),
+      comisionGs: parseFloat(c.com_gs),
+    })),
+  }
+}
+
+export async function getResumenColaboradorMes(
+  nombreColaborador: string,
+  esGabriel: boolean,
+  year: number,
+  month: number
+): Promise<ResumenColaboradorMes> {
+  const mesFilter = sql`
+    EXTRACT(YEAR  FROM fecha AT TIME ZONE 'America/Asuncion') = ${year}
+    AND EXTRACT(MONTH FROM fecha AT TIME ZONE 'America/Asuncion') = ${month}
+  `
+
+  const rows = esGabriel
+    ? await sql<[{ total: string; total_usd: string; com_usd: string; com_gs: string }]>`
+        SELECT
+          COUNT(*)::text                                        AS total,
+          COALESCE(SUM(usd_total), 0)::text                    AS total_usd,
+          COALESCE(SUM(monto_comision_gabriel_usd), 0)::text   AS com_usd,
+          COALESCE(SUM(monto_comision_gabriel_gs), 0)::text    AS com_gs
+        FROM transactions WHERE ${mesFilter}
+      `
+    : await sql<[{ total: string; total_usd: string; com_usd: string; com_gs: string }]>`
+        SELECT
+          COUNT(*)::text                                        AS total,
+          COALESCE(SUM(usd_total), 0)::text                    AS total_usd,
+          COALESCE(SUM(monto_colaborador_usd), 0)::text        AS com_usd,
+          COALESCE(SUM(monto_colaborador_gs), 0)::text         AS com_gs
+        FROM transactions
+        WHERE ${mesFilter}
+          AND LOWER(colaborador) = LOWER(${nombreColaborador})
+      `
+
+  const r = rows[0]
+  const mesLabel = new Date(year, month - 1, 1)
+    .toLocaleString('es-PY', { month: 'long', year: 'numeric', timeZone: 'America/Asuncion' })
+
+  return {
+    nombre: nombreColaborador,
+    mes: mesLabel,
+    totalTransacciones: parseInt(r.total, 10),
+    totalUsdOperado: parseFloat(r.total_usd),
+    comisionUsd: parseFloat(r.com_usd),
+    comisionGs: parseFloat(r.com_gs),
+  }
+}
+
 export async function deleteTransaction(id: number): Promise<boolean> {
   // Guarda snapshot antes de borrar para auditoría
   const existing = await sql<Record<string, unknown>[]>`

@@ -31,9 +31,17 @@ export type ParsedTransaccion = {
   montoGs: number | null
 }
 
+export type ParsedHoy = {
+  type: 'HOY'
+}
+
+export type ParsedYo = {
+  type: 'YO'
+}
+
 export type ParseError = {
   type: 'ERROR'
   mensaje: string
 }
 
-export type ParseResult = ParsedTasa | ParsedTransaccion | ParseError
+export type ParseResult = ParsedTasa | ParsedTransaccion | ParsedHoy | ParsedYo | ParseError
