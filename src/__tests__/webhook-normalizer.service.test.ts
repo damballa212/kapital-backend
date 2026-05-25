@@ -106,6 +106,17 @@ describe('normalizeWhatsAppPayload', () => {
     expect(normalizeWhatsAppPayload({ foo: 'bar' })).toBeNull()
   })
 
+  it('devuelve null si el mensaje es del propio bot (fromMe)', () => {
+    expect(normalizeWhatsAppPayload({
+      data: {
+        key: { remoteJid: '595981000000@s.whatsapp.net', id: 'MSG-OUT-1', fromMe: true },
+        message: { conversation: '💸 TRANSACCIÓN CONFIRMADA 💸' },
+        messageTimestamp: 1710000001,
+        pushName: 'Bot',
+      },
+    })).toBeNull()
+  })
+
   it('mantiene la misma idempotency key cuando messageId es estable', () => {
     expect(generarIdempotencyKey('MSG-42', '163904676176039@lid', '1710000000', '#TASA 7300'))
       .toBe('MSG-42')

@@ -108,6 +108,7 @@ export function normalizeWhatsAppPayload(body: Record<string, unknown>): WhatsAp
     contentInfo.messageType
 
   if (!chatId || !contentInfo.content) return null
+  if (key.fromMe === true) return null
 
   return {
     chatId,

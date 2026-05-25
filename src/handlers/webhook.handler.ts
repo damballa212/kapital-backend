@@ -1,7 +1,7 @@
 
 import type { Request, Response } from 'express'
 import { parsearMensaje } from '../services/parser.service.js'
-import { procesarTransaccion } from '../services/transaction.service.js'
+import { procesarTransaccion, DuplicateTransactionError } from '../services/transaction.service.js'
 import { setTasa, getTasaVigente } from '../services/rate.service.js'
 import {
   enviarConfirmacionTransaccion,
@@ -206,6 +206,19 @@ export async function handleWhatsAppWebhook(req: Request, res: Response): Promis
       })
     }
   } catch (err) {
+    if (err instanceof DuplicateTransactionError) {
+      await recordWebhookFlowEvent(messageLogId, {
+        stage: 'ignored_duplicate',
+        status: 'skipped',
+        details: { idempotencyKey: err.idempotencyKey },
+      }).catch(() => undefined)
+      await updateInboundMessageLog(messageLogId, {
+        status: 'ignored_group',
+        flowStage: 'ignored_duplicate',
+        finish: true,
+      }).catch(() => undefined)
+      return
+    }
     const mensaje = err instanceof Error ? err.message : 'Error interno'
     await enviarError(payload.chatId, mensaje).catch(() => undefined)
     const status: WhatsappInboundStatus = mensaje.toLowerCase().includes('confirm')

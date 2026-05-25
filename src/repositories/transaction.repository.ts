@@ -15,9 +15,9 @@ import type {
 export async function insertTransaction(
   data: TransactionInsert,
   tx?: TransactionSql
-): Promise<number> {
+): Promise<number | undefined> {
   const runner = tx ?? sql
-  const rows = await runner<[{ id: number }]>`
+  const rows = await runner<Array<{ id: number }>>`
     INSERT INTO transactions (
       idempotency_key, fecha, chat_id, colaborador, cliente,
       usd_total, comision, usd_neto, monto_gs,
@@ -31,9 +31,10 @@ export async function insertTransaction(
       ${data.montoComisionGabrielGs}, ${data.montoComisionGabrielUsd},
       ${data.tasaUsada}, ${data.observaciones}
     )
+    ON CONFLICT (idempotency_key) DO NOTHING
     RETURNING id
   `
-  return rows[0].id
+  return rows[0]?.id
 }
 
 function mapRow(r: Record<string, unknown>): Transaction {

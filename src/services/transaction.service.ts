@@ -6,6 +6,12 @@ import { resolverColaboradorDb } from './collaborator.service.js'
 import type { ParsedTransaccion, WhatsAppPayload } from '../domain/webhook.js'
 import type { ComisionesCalculadas } from '../domain/transaction.js'
 
+export class DuplicateTransactionError extends Error {
+  constructor(public readonly idempotencyKey: string) {
+    super('duplicate_transaction')
+  }
+}
+
 export function resolverColaborador(
   nombre: string | null,
   comisionPct: number,
@@ -81,6 +87,7 @@ export async function procesarTransaccion(
     meta.content
   )
   let transactionId: number | undefined
+  let isDuplicate = false
 
   await sql.begin(async (tx: TransactionSql) => {
     transactionId = await insertTransaction({
@@ -101,6 +108,11 @@ export async function procesarTransaccion(
       observaciones: null,
     }, tx)
 
+    if (transactionId === undefined) {
+      isDuplicate = true
+      return
+    }
+
     await tx`
       INSERT INTO clients (name, tx_count, created_at, updated_at)
       VALUES (${comisiones.cliente}, 1, NOW(), NOW())
@@ -118,6 +130,8 @@ export async function procesarTransaccion(
         updated_at = NOW()
     `
   })
+
+  if (isDuplicate) throw new DuplicateTransactionError(idempotencyKey)
 
   return { ...comisiones, transactionId }
 }
