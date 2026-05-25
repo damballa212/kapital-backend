@@ -3,6 +3,7 @@ export type Collaborator = {
   name: string
   basePctUsdTotal: number | null
   txCount: number
+  status: string
   createdAt: Date
   updatedAt: Date
 }

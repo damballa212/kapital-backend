@@ -3,7 +3,13 @@ import { handleWhatsAppWebhook } from './handlers/webhook.handler.js'
 import { handleGetTransacciones, handleDeleteTransaccion } from './handlers/transactions.handler.js'
 import { handleGetDashboard } from './handlers/dashboard.handler.js'
 import { handleExport, handleExportPreview } from './handlers/reports.handler.js'
-import { handleGetTasa, handleGetColaboradores } from './handlers/rates.handler.js'
+import { handleGetTasa } from './handlers/rates.handler.js'
+import {
+  handleGetColaboradores,
+  handleCreateColaborador,
+  handleUpdateColaborador,
+  handleDeleteColaborador,
+} from './handlers/collaborators.handler.js'
 import { handleGetPresets, handleSavePreset, handleDeletePreset } from './handlers/presets.handler.js'
 import { handleGetWebhookMessage, handleGetWebhookMessages } from './handlers/webhookMessages.handler.js'
 import { withAuth } from './middleware/auth.js'
@@ -29,8 +35,11 @@ export function createApp(): express.Express {
   app.get('/dashboard',          withAuth(handleGetDashboard))
   app.get('/export/preview',     withAuth(handleExportPreview))
   app.get('/export',             withAuth(handleExport))
-  app.get('/rates/current',      withAuth(handleGetTasa))
-  app.get('/collaborators',      withAuth(handleGetColaboradores))
+  app.get('/rates/current',           withAuth(handleGetTasa))
+  app.get('/collaborators',           withAuth(handleGetColaboradores))
+  app.post('/collaborators',          withAuth(handleCreateColaborador))
+  app.put('/collaborators/:id',       withAuth(handleUpdateColaborador))
+  app.delete('/collaborators/:id',    withAuth(handleDeleteColaborador))
   app.get('/export/presets',     withAuth(handleGetPresets))
   app.post('/export/presets',    withAuth(handleSavePreset))
   app.delete('/export/presets/:id', withAuth(handleDeletePreset))

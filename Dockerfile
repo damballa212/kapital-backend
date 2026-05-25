@@ -20,6 +20,7 @@ COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile --prod
 
 COPY --from=builder /app/lib ./lib
+COPY migrations ./migrations
 
 EXPOSE 3000
 CMD ["node", "lib/index.js"]

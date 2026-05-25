@@ -2,6 +2,7 @@ import { sql } from '../db/postgres.js'
 import type { TransactionSql } from 'postgres'
 import { generarIdempotencyKey } from '../utils/idempotency.js'
 import { insertTransaction } from '../repositories/transaction.repository.js'
+import { resolverColaboradorDb } from './collaborator.service.js'
 import type { ParsedTransaccion, WhatsAppPayload } from '../domain/webhook.js'
 import type { ComisionesCalculadas } from '../domain/transaction.js'
 
@@ -35,10 +36,11 @@ export function resolverColaborador(
 
 export function calcularComisiones(
   parsed: ParsedTransaccion,
-  tasa: number
+  tasa: number,
+  preResolved?: { colaborador: string; pct: number }
 ): ComisionesCalculadas {
   const { colaborador: nombreRaw, usdTotal, comisionPct, overridePct, cliente } = parsed
-  const { colaborador, pct: pctColaborador } = resolverColaborador(nombreRaw, comisionPct, overridePct)
+  const { colaborador, pct: pctColaborador } = preResolved ?? resolverColaborador(nombreRaw, comisionPct, overridePct)
 
   const comisionTotalUsd = usdTotal * (comisionPct / 100)
   const usdNeto = usdTotal - comisionTotalUsd
@@ -70,7 +72,8 @@ export async function procesarTransaccion(
   meta: WhatsAppPayload,
   tasa: number
 ): Promise<ComisionesCalculadas> {
-  const comisiones = calcularComisiones(parsed, tasa)
+  const preResolved = await resolverColaboradorDb(parsed.colaborador, parsed.comisionPct, parsed.overridePct)
+  const comisiones = calcularComisiones(parsed, tasa, preResolved)
   const idempotencyKey = generarIdempotencyKey(
     meta.messageId,
     meta.chatId,

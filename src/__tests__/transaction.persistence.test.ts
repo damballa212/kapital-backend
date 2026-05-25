@@ -13,6 +13,16 @@ vi.mock('../repositories/transaction.repository.js', () => ({
   insertTransaction: insertTransactionMock,
 }))
 
+vi.mock('../repositories/collaborator.repository.js', () => ({
+  findCollaboratorByName: vi.fn().mockResolvedValue(null),
+  upsertCollaborator: vi.fn().mockResolvedValue(undefined),
+  incrementCollaboratorCount: vi.fn().mockResolvedValue(undefined),
+  findAllCollaborators: vi.fn().mockResolvedValue([]),
+  createCollaborator: vi.fn(),
+  updateCollaboratorById: vi.fn(),
+  deleteCollaboratorById: vi.fn(),
+}))
+
 const { procesarTransaccion } = await import('../services/transaction.service.js')
 
 describe('procesarTransaccion persistence metadata', () => {
