@@ -23,4 +23,4 @@ COPY --from=builder /app/lib ./lib
 COPY migrations ./migrations
 
 EXPOSE 3000
-CMD ["node", "lib/index.js"]
+CMD ["sh", "-c", "node lib/scripts/migrate.js && node lib/index.js"]
