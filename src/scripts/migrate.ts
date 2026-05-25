@@ -50,7 +50,7 @@ async function applyMigration(fileName: string): Promise<void> {
   })
 }
 
-async function main(): Promise<void> {
+export async function runMigrations(): Promise<void> {
   await ensureMigrationsTable()
 
   const applied = await getAppliedVersions()
@@ -59,7 +59,6 @@ async function main(): Promise<void> {
 
   if (pending.length === 0) {
     console.log('No pending migrations')
-    await sql.end()
     return
   }
 
@@ -69,12 +68,15 @@ async function main(): Promise<void> {
   }
 
   console.log(`Applied ${pending.length} migration(s)`)
-  await sql.end()
 }
 
-main().catch(async (error: unknown) => {
-  console.error('Migration failed')
-  console.error(error)
-  await sql.end({ timeout: 1 })
-  process.exit(1)
-})
+// Cuando se corre como script standalone: node lib/scripts/migrate.js
+if (process.argv[1]?.endsWith('migrate.js') || process.argv[1]?.endsWith('migrate.ts')) {
+  runMigrations()
+    .then(() => sql.end())
+    .catch(async (error: unknown) => {
+      console.error('Migration failed', error)
+      await sql.end({ timeout: 1 })
+      process.exit(1)
+    })
+}

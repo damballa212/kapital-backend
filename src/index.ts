@@ -22,6 +22,7 @@ import { createApp } from './app.js'
 
 // ─── MODO EXPRESS (VPS) ──────────────────────────────────────────────────────
 import { initializeApp, cert } from 'firebase-admin/app'
+import { runMigrations } from './scripts/migrate.js'
 
 if (process.env.FIREBASE_SA_B64) {
   const sa = JSON.parse(Buffer.from(process.env.FIREBASE_SA_B64, 'base64').toString())
@@ -29,6 +30,8 @@ if (process.env.FIREBASE_SA_B64) {
 } else {
   initializeApp()
 }
+
+await runMigrations()
 
 const app = createApp()
 
