@@ -11,6 +11,7 @@ import {
   handleDeleteColaborador,
 } from './handlers/collaborators.handler.js'
 import { handleGetPresets, handleSavePreset, handleDeletePreset } from './handlers/presets.handler.js'
+import { handleSearchClients } from './handlers/clients.handler.js'
 import { handleGetConversations, handleGetWebhookMessage, handleGetWebhookMessages } from './handlers/webhookMessages.handler.js'
 import { withAuth } from './middleware/auth.js'
 import { verifyEvolutionSecret } from './middleware/webhookAuth.js'
@@ -45,6 +46,7 @@ export function createApp(): express.Express {
   app.get('/export/preview',     withAuth(handleExportPreview))
   app.get('/export',             withAuth(handleExport))
   app.get('/rates/current',           withAuth(handleGetTasa))
+  app.get('/clients',                 withAuth(handleSearchClients))
   app.get('/collaborators',           withAuth(handleGetColaboradores))
   app.post('/collaborators',          withAuth(handleCreateColaborador))
   app.put('/collaborators/:id',       withAuth(handleUpdateColaborador))

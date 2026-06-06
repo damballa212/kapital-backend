@@ -16,3 +16,14 @@ export async function incrementClientCount(name: string): Promise<void> {
     WHERE LOWER(name) = LOWER(${name})
   `
 }
+
+export async function searchClients(q: string): Promise<Array<{ name: string; txCount: number }>> {
+  const rows = await sql<Array<{ name: string; tx_count: number }>>`
+    SELECT name, tx_count
+    FROM clients
+    WHERE LOWER(name) LIKE LOWER(${'%' + q + '%'})
+    ORDER BY tx_count DESC, name ASC
+    LIMIT 10
+  `
+  return rows.map(r => ({ name: r.name, txCount: r.tx_count }))
+}
