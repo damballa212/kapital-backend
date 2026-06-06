@@ -2,8 +2,11 @@ import { sql } from '../db/postgres.js'
 
 export async function insertRate(rate: number): Promise<void> {
   await sql`
-    INSERT INTO global_rate (rate, updated_at)
-    VALUES (${rate}, NOW())
+    INSERT INTO global_rate (id, rate, updated_at)
+    VALUES (1, ${rate}, NOW())
+    ON CONFLICT (id) DO UPDATE
+      SET rate       = EXCLUDED.rate,
+          updated_at = NOW()
   `
 }
 

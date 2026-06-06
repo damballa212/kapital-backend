@@ -1,6 +1,5 @@
 import { sql } from '../db/postgres.js'
 
-// Requiere índice: CREATE INDEX IF NOT EXISTS transactions_chat_created ON transactions (chat_id, created_at DESC)
 const LIMIT = 10
 const VENTANA_MS = 60 * 1000
 
