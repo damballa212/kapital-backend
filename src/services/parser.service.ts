@@ -1,7 +1,7 @@
 import type { ParseResult } from '../domain/webhook.js'
 
 const TASA_RE = /#TASA\s+(\d+(?:[.,]\d+)?)/i
-const TX_RE = /^#TRANSACCION\s+(?:Colaborador\s+([\w\sáéíóúüñÁÉÍÓÚÜÑ]+?)(?:\s*\((\d+(?:\.\d+)?)%\))?\s+)?Cliente\s+([\w\sáéíóúüñÁÉÍÓÚÜÑ]+?)\s*(?::\s*|\s+)\$?([\d.,]+)\$?\s*-\s*([\d.,]+)%(?:\s*=\s*\$?([\d.,]+))?(?:\s*=\s*([\d.,]+)\s*Gs)?/i
+const TX_RE = /^#TRANSACCION\s+(?:Colaborador\s+([\w\sáéíóúüñÁÉÍÓÚÜÑ]+?)(?:\s*\(%?(\d+(?:\.\d+)?)%?\))?\s+)?Cliente\s+([\w\sáéíóúüñÁÉÍÓÚÜÑ]+?)\s*(?::\s*|\s+)\$?([\d.,]+)\$?\s*-\s*([\d.,]+)%(?:\s*=\s*\$?([\d.,]+))?(?:\s*=\s*([\d.,]+)\s*Gs)?/i
 
 function parseNum(s: string): number {
   // Acepta "1.500", "7.300", "1500", "7300.50", "1.500,50", "1500.50"

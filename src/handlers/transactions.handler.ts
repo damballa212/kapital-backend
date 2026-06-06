@@ -2,6 +2,7 @@
 import type { Request, Response } from 'express'
 import { findTransactions, deleteTransaction } from '../repositories/transaction.repository.js'
 import type { FiltroTransacciones } from '../domain/transaction.js'
+import { emit } from '../services/eventBus.js'
 
 export async function handleGetTransacciones(req: Request, res: Response): Promise<void> {
   const { startDate, endDate, colaborador, cliente } = req.query as Record<string, string>
@@ -27,5 +28,6 @@ export async function handleDeleteTransaccion(req: Request, res: Response): Prom
   if (isNaN(id)) { res.status(400).json({ error: 'id inválido' }); return }
   const deleted = await deleteTransaction(id)
   if (!deleted) { res.status(404).json({ error: 'Transacción no encontrada' }); return }
+  emit({ type: 'transaction.deleted', transactionId: id })
   res.sendStatus(204)
 }

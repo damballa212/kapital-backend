@@ -14,6 +14,7 @@ import { handleGetPresets, handleSavePreset, handleDeletePreset } from './handle
 import { handleGetWebhookMessage, handleGetWebhookMessages } from './handlers/webhookMessages.handler.js'
 import { withAuth } from './middleware/auth.js'
 import { verifyEvolutionSecret } from './middleware/webhookAuth.js'
+import { handleSSE } from './handlers/sse.handler.js'
 import { sql } from './db/postgres.js'
 
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN ?? 'https://kapital-app-prod.web.app'
@@ -50,6 +51,7 @@ export function createApp(): express.Express {
   app.get('/export/presets',     withAuth(handleGetPresets))
   app.post('/export/presets',    withAuth(handleSavePreset))
   app.delete('/export/presets/:id', withAuth(handleDeletePreset))
+  app.get('/realtime/events', handleSSE)
   app.get('/health', async (_req, res) => {
     try {
       await sql`SELECT 1`

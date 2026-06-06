@@ -22,6 +22,7 @@ import {
   updateInboundMessageLog,
 } from '../repositories/whatsappLog.repository.js'
 import type { WhatsappInboundStatus } from '../domain/whatsappLog.js'
+import { emit } from '../services/eventBus.js'
 
 export async function handleWhatsAppWebhook(req: Request, res: Response): Promise<void> {
   // Evolution API espera 200 siempre para no reintentar
@@ -30,6 +31,7 @@ export async function handleWhatsAppWebhook(req: Request, res: Response): Promis
   const payload = normalizeWhatsAppPayload(req.body as Record<string, unknown>)
   if (!payload) return
   const messageLogId = await createInboundMessageLog(payload, req.body as Record<string, unknown>)
+  emit({ type: 'webhook.message.created', messageId: messageLogId })
   await recordWebhookFlowEvent(messageLogId, {
     stage: 'received',
     status: 'ok',
