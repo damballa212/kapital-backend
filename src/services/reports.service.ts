@@ -278,8 +278,28 @@ export async function generarPDF(filtros: FiltroReporte): Promise<Buffer> {
   const ROW_H    = 16
   const AVAIL    = FTRY - CT - 8
   const RPP      = Math.floor((AVAIL - TH_H) / ROW_H)
-  const dataPgs  = rows.length > 0 ? Math.ceil(rows.length / RPP) : 1
-  totalPages     = 1 + dataPgs
+
+  // Pre-build collaborator map (needed both for layout estimation and drawing)
+  const byC = new Map<string, { txs: number; usd: number; gs: number; com: number; comG: number }>()
+  rows.forEach(r => {
+    const n = r.colaborador ?? 'Gabriel Zambrano'
+    const v = byC.get(n) ?? { txs: 0, usd: 0, gs: 0, com: 0, comG: 0 }
+    byC.set(n, { txs: v.txs + 1, usd: v.usd + r.usdTotal, gs: v.gs + r.montoGs,
+                 com: v.com + r.montoColaboradorUsd, comG: v.comG + r.montoComisionGabrielUsd })
+  })
+
+  // Estimate where page-1 summary ends to find available space for transactions
+  const EST_TBLY      = 248
+  const estCollabEnd  = EST_TBLY + 14 + 18 + byC.size * 15 + 1
+  const p1SectionY    = estCollabEnd + 12
+  const p1RowsStartY  = p1SectionY + 14 + TH_H
+  const rowsOnPage1   = rows.length > 0 && (FTRY - p1RowsStartY - 8) >= ROW_H
+    ? Math.floor((FTRY - p1RowsStartY - 8) / ROW_H)
+    : 0
+  const rowsAfterP1   = Math.max(0, rows.length - rowsOnPage1)
+  totalPages = rows.length === 0
+    ? 1
+    : 1 + (rowsAfterP1 > 0 ? Math.ceil(rowsAfterP1 / RPP) : 0)
 
   // ══════════════════════════════════════════════════════════════════════════
   // PÁGINA 1 — RESUMEN EJECUTIVO
@@ -348,13 +368,6 @@ export async function generarPDF(filtros: FiltroReporte): Promise<Buffer> {
   doc.fillColor(INK).fontSize(9).font('Helvetica-Bold')
     .text('DESGLOSE POR COLABORADOR', L, TBLY, { lineBreak: false })
 
-  const byC = new Map<string, { txs: number; usd: number; gs: number; com: number; comG: number }>()
-  rows.forEach(r => {
-    const n = r.colaborador ?? 'Gabriel Zambrano'
-    const v = byC.get(n) ?? { txs: 0, usd: 0, gs: 0, com: 0, comG: 0 }
-    byC.set(n, { txs: v.txs + 1, usd: v.usd + r.usdTotal, gs: v.gs + r.montoGs,
-                 com: v.com + r.montoColaboradorUsd, comG: v.comG + r.montoComisionGabrielUsd })
-  })
   const CC   = [192, 88, 118, 118, 118, 118]
   const CHDR = ['Colaborador', 'Transacciones', 'USD Movido', 'Com. Colaborador', 'Com. Gabriel', 'Gs Entregados']
   let cy = TBLY + 14
@@ -381,13 +394,33 @@ export async function generarPDF(filtros: FiltroReporte): Promise<Buffer> {
   })
   doc.rect(L, cy, W, 0.5).fill(BORDER)
 
+  // Transactions that fit in the remaining space of page 1
+  if (rowsOnPage1 > 0) {
+    cy += 12
+    doc.fillColor(INK).fontSize(9).font('Helvetica-Bold')
+      .text('DETALLE DE TRANSACCIONES', L, cy, { lineBreak: false })
+    cy += 14
+    cy = tableHeader(cy)
+    for (let i = 0; i < rowsOnPage1 && i < rows.length; i++) {
+      const r = rows[i]
+      if (i % 2 === 1) doc.rect(L, cy, W, ROW_H).fill(ROW_BG)
+      doc.fillColor(INK).fontSize(8.5).font('Helvetica')
+      fields.forEach((f, fi) => {
+        doc.text(String(getFieldValue(r, f.key)), cx(fi) + 4, cy + 4,
+          { width: colW[fi] - 6, lineBreak: false })
+      })
+      cy += ROW_H
+      if (i % 5 === 4) doc.rect(L, cy, W, 0.3).fill(BORDER)
+    }
+  }
+
   // ══════════════════════════════════════════════════════════════════════════
-  // PÁGINAS DE DATOS (A4 landscape, fuente 8.5pt, 16pt por fila)
+  // PÁGINAS DE DATOS — continúan desde donde terminó página 1
   // ══════════════════════════════════════════════════════════════════════════
   let buf = 0
   let y   = CT
 
-  rows.forEach((r, idx) => {
+  rows.slice(rowsOnPage1).forEach((r, idx) => {
     if (buf === 0) {
       pageNum++
       doc.addPage()
