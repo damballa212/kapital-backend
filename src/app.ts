@@ -11,7 +11,7 @@ import {
   handleDeleteColaborador,
 } from './handlers/collaborators.handler.js'
 import { handleGetPresets, handleSavePreset, handleDeletePreset } from './handlers/presets.handler.js'
-import { handleGetWebhookMessage, handleGetWebhookMessages } from './handlers/webhookMessages.handler.js'
+import { handleGetConversations, handleGetWebhookMessage, handleGetWebhookMessages } from './handlers/webhookMessages.handler.js'
 import { withAuth } from './middleware/auth.js'
 import { verifyEvolutionSecret } from './middleware/webhookAuth.js'
 import { handleSSE } from './handlers/sse.handler.js'
@@ -36,6 +36,7 @@ export function createApp(): express.Express {
   app.use(express.json({ limit: '1mb' }))
 
   app.post('/webhook/whatsapp', verifyEvolutionSecret, handleWhatsAppWebhook)
+  app.get('/webhook/conversations', withAuth(handleGetConversations))
   app.get('/webhook/messages',   withAuth(handleGetWebhookMessages))
   app.get('/webhook/messages/:id', withAuth(handleGetWebhookMessage))
   app.get('/transactions',           withAuth(handleGetTransacciones))

@@ -48,6 +48,18 @@ export type WhatsappMessageFilters = {
   status?: WhatsappInboundStatus
   parsedType?: Exclude<WhatsappParsedType, null>
   q?: string
+  chatId?: string
+}
+
+export type WhatsappConversation = {
+  chatId: string
+  userName: string | null
+  totalMessages: number
+  lastActivity: Date
+  lastContent: string
+  lastStatus: WhatsappInboundStatus
+  failedCount: number
+  successCount: number
 }
 
 export type WhatsappLogPatch = {

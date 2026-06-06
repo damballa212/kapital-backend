@@ -1,6 +1,7 @@
 import { sql } from '../db/postgres.js'
 import type { WhatsAppPayload } from '../domain/webhook.js'
 import type {
+  WhatsappConversation,
   WhatsappFlowEvent,
   WhatsappInboundMessage,
   WhatsappLogPatch,
@@ -50,6 +51,7 @@ function buildConditions(filters: WhatsappMessageFilters) {
       OR user_name ILIKE ${'%' + filters.q + '%'}
       OR error_message ILIKE ${'%' + filters.q + '%'}
     )` : sql``}
+    ${filters.chatId ? sql`AND chat_id = ${filters.chatId}` : sql``}
   `
 }
 
@@ -163,6 +165,52 @@ export async function getInboundMessageSummary(filters: WhatsappMessageFilters):
     failed: parseInt(r.failed, 10),
     parseErrors: parseInt(r.parse_errors, 10),
   }
+}
+
+export async function findConversations(
+  filters: Pick<WhatsappMessageFilters, 'startDate' | 'endDate' | 'q'>
+): Promise<WhatsappConversation[]> {
+  const rows = await sql<Record<string, unknown>[]>`
+    SELECT
+      chat_id,
+      MAX(user_name) AS user_name,
+      COUNT(*)::int AS total_messages,
+      MAX(received_at) AS last_activity,
+      (
+        SELECT content FROM whatsapp_inbound_messages m2
+        WHERE m2.chat_id = m.chat_id
+        ORDER BY received_at DESC, id DESC LIMIT 1
+      ) AS last_content,
+      (
+        SELECT status FROM whatsapp_inbound_messages m2
+        WHERE m2.chat_id = m.chat_id
+        ORDER BY received_at DESC, id DESC LIMIT 1
+      ) AS last_status,
+      COUNT(*) FILTER (WHERE status IN ('failed','confirmation_failed','parse_error','rate_limited'))::int AS failed_count,
+      COUNT(*) FILTER (WHERE status IN ('confirmation_sent','rate_updated'))::int AS success_count
+    FROM whatsapp_inbound_messages m
+    WHERE 1=1
+      ${filters.startDate ? sql`AND received_at >= ${filters.startDate}::timestamptz` : sql``}
+      ${filters.endDate ? sql`AND received_at <= ${filters.endDate}::timestamptz + INTERVAL '1 day'` : sql``}
+      ${filters.q ? sql`AND (
+        chat_id ILIKE ${'%' + filters.q + '%'}
+        OR user_name ILIKE ${'%' + filters.q + '%'}
+      )` : sql``}
+    GROUP BY chat_id
+    ORDER BY last_activity DESC
+    LIMIT 200
+  `
+
+  return rows.map(r => ({
+    chatId: r.chat_id as string,
+    userName: r.user_name as string | null,
+    totalMessages: r.total_messages as number,
+    lastActivity: r.last_activity as Date,
+    lastContent: r.last_content as string,
+    lastStatus: r.last_status as WhatsappConversation['lastStatus'],
+    failedCount: r.failed_count as number,
+    successCount: r.success_count as number,
+  }))
 }
 
 export async function getInboundMessageDetail(

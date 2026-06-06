@@ -3,6 +3,10 @@ import { formatGs, formatUsd, formatPct } from '../utils/formatters.js'
 import type { ComisionesCalculadas } from '../domain/transaction.js'
 import type { ResumenHoy, ResumenColaboradorMes } from '../repositories/transaction.repository.js'
 
+class EvolutionClientError extends Error {
+  constructor(public readonly status: number, message: string) { super(message) }
+}
+
 async function enviarMensaje(chatId: string, texto: string): Promise<void> {
   const url = `${env.EVOLUTION_API_URL}/message/sendText/${env.EVOLUTION_INSTANCE}`
   const res = await fetch(url, {
@@ -14,7 +18,11 @@ async function enviarMensaje(chatId: string, texto: string): Promise<void> {
     body: JSON.stringify({ number: chatId, text: texto }),
   })
   if (!res.ok) {
-    throw new Error(`Evolution API error ${res.status}: ${await res.text()}`)
+    const body = await res.text()
+    if (res.status >= 400 && res.status < 500) {
+      throw new EvolutionClientError(res.status, `Evolution API error ${res.status}: ${body}`)
+    }
+    throw new Error(`Evolution API error ${res.status}: ${body}`)
   }
 }
 
@@ -24,6 +32,7 @@ async function enviarMensajeConRetry(chatId: string, texto: string, intentos = 3
       await enviarMensaje(chatId, texto)
       return
     } catch (err) {
+      if (err instanceof EvolutionClientError) throw err  // 4xx: no reintentar
       if (i === intentos - 1) throw err
       await new Promise(r => setTimeout(r, 1000 * (i + 1)))
     }
