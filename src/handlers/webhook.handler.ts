@@ -213,7 +213,7 @@ export async function handleWhatsAppWebhook(req: Request, res: Response): Promis
         details: { idempotencyKey: err.idempotencyKey },
       }).catch(() => undefined)
       await updateInboundMessageLog(messageLogId, {
-        status: 'ignored_group',
+        status: 'ignored_duplicate',
         flowStage: 'ignored_duplicate',
         finish: true,
       }).catch(() => undefined)

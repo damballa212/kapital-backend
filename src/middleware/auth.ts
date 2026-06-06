@@ -24,9 +24,9 @@ export function withAuth(handler: Handler): Handler {
     try {
       await handler(req, res)
     } catch (err: unknown) {
+      console.error('Authenticated handler failed', err)
       if (!res.headersSent) {
-        const msg = err instanceof Error ? err.message : 'Error interno'
-        res.status(500).json({ error: msg })
+        res.status(500).json({ error: 'Error interno' })
       }
     }
   }

@@ -191,7 +191,7 @@ export async function getMetricasMes(year: number, month: number): Promise<Metri
 
 export async function getPerformanceColaboradores(
   inicio: string,
-  fin: string
+  finExclusivo: string
 ): Promise<ColaboradorMetrica[]> {
   return sql<ColaboradorMetrica[]>`
     SELECT
@@ -201,33 +201,42 @@ export async function getPerformanceColaboradores(
       COALESCE(SUM(monto_colaborador_usd), 0)::float   AS "comisionUsd"
     FROM transactions
     WHERE colaborador IS NOT NULL
-      AND fecha BETWEEN ${inicio}::timestamptz AND ${fin}::timestamptz
+      AND fecha >= ${inicio}::timestamptz
+      AND fecha < ${finExclusivo}::timestamptz
     GROUP BY colaborador
     ORDER BY "totalUsd" DESC
   `
 }
 
-export async function getTopClientes(limit: number): Promise<ClienteMetrica[]> {
+export async function getTopClientes(
+  limit: number,
+  inicio?: string,
+  finExclusivo?: string
+): Promise<ClienteMetrica[]> {
   return sql<ClienteMetrica[]>`
     SELECT
       cliente,
       COUNT(*)::int            AS "totalTransacciones",
       COALESCE(SUM(usd_total), 0)::float AS "totalUsd"
     FROM transactions
+    WHERE 1=1
+      ${inicio ? sql`AND fecha >= ${inicio}::timestamptz` : sql``}
+      ${finExclusivo ? sql`AND fecha < ${finExclusivo}::timestamptz` : sql``}
     GROUP BY cliente
     ORDER BY "totalUsd" DESC
     LIMIT ${limit}
   `
 }
 
-export async function getDailyMetrics(inicio: string, fin: string): Promise<DiaMetrica[]> {
+export async function getDailyMetrics(inicio: string, finExclusivo: string): Promise<DiaMetrica[]> {
   return sql<DiaMetrica[]>`
     SELECT
       DATE(fecha AT TIME ZONE 'America/Asuncion')::text AS fecha,
       COUNT(*)::int            AS "totalTransacciones",
       COALESCE(SUM(usd_total), 0)::float AS "totalUsd"
     FROM transactions
-    WHERE fecha BETWEEN ${inicio}::timestamptz AND ${fin}::timestamptz
+    WHERE fecha >= ${inicio}::timestamptz
+      AND fecha < ${finExclusivo}::timestamptz
     GROUP BY DATE(fecha AT TIME ZONE 'America/Asuncion')
     ORDER BY fecha ASC
   `

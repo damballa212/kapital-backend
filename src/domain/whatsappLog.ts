@@ -1,6 +1,7 @@
 export type WhatsappInboundStatus =
   | 'received'
   | 'ignored_group'
+  | 'ignored_duplicate'
   | 'rate_limited'
   | 'parse_error'
   | 'rate_updated'

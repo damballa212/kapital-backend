@@ -31,16 +31,24 @@ export type DashboardData = {
   tasaActual: number | null
 }
 
+function monthRange(year: number, month: number): { inicio: string; finExclusivo: string } {
+  const safeMonth = Math.min(12, Math.max(1, month))
+  const inicio = `${year}-${String(safeMonth).padStart(2, '0')}-01`
+  const nextYear = safeMonth === 12 ? year + 1 : year
+  const nextMonth = safeMonth === 12 ? 1 : safeMonth + 1
+  const finExclusivo = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`
+  return { inicio, finExclusivo }
+}
+
 export async function obtenerDashboard(year: number, month: number): Promise<DashboardData> {
-  const inicio = `${year}-${String(month).padStart(2, '0')}-01`
-  const fin = new Date(year, month, 0).toISOString().split('T')[0]
+  const { inicio, finExclusivo } = monthRange(year, month)
 
   const [hoy, mes, colaboradores, topClientes, diario, tasaActual] = await Promise.all([
     getMetricasHoy(),
     getMetricasMes(year, month),
-    getPerformanceColaboradores(inicio, fin),
-    getTopClientes(10),
-    getDailyMetrics(inicio, fin),
+    getPerformanceColaboradores(inicio, finExclusivo),
+    getTopClientes(10, inicio, finExclusivo),
+    getDailyMetrics(inicio, finExclusivo),
     getCurrentRate(),
   ])
 

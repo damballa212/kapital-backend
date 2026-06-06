@@ -9,6 +9,12 @@ const enviarErrorMock = vi.fn()
 const getTasaVigenteMock = vi.fn()
 const procesarTransaccionMock = vi.fn()
 
+class DuplicateTransactionErrorMock extends Error {
+  constructor(public readonly idempotencyKey: string) {
+    super('duplicate_transaction')
+  }
+}
+
 vi.mock('../repositories/whatsappLog.repository.js', () => ({
   createInboundMessageLog: createInboundMessageLogMock,
   recordWebhookFlowEvent: recordWebhookFlowEventMock,
@@ -28,6 +34,7 @@ vi.mock('../services/rate.service.js', () => ({
 
 vi.mock('../services/transaction.service.js', () => ({
   procesarTransaccion: procesarTransaccionMock,
+  DuplicateTransactionError: DuplicateTransactionErrorMock,
 }))
 
 vi.mock('../utils/rateLimit.js', () => ({
@@ -202,5 +209,24 @@ describe('handleWhatsAppWebhook tracing', () => {
     expect(createInboundMessageLogMock).toHaveBeenCalledWith(expect.objectContaining({
       messageId: '1710000099',
     }), expect.any(Object))
+  })
+
+  it('marks duplicate transactions as ignored_duplicate instead of ignored_group', async () => {
+    procesarTransaccionMock.mockRejectedValue(new DuplicateTransactionErrorMock('MSG-1'))
+
+    await handleWhatsAppWebhook(
+      makeReq('#TRANSACCION Cliente Ana: 500$ - 15%'),
+      makeRes()
+    )
+
+    expect(recordWebhookFlowEventMock).toHaveBeenCalledWith(100, expect.objectContaining({
+      stage: 'ignored_duplicate',
+      status: 'skipped',
+    }))
+    expect(updateInboundMessageLogMock).toHaveBeenCalledWith(100, expect.objectContaining({
+      status: 'ignored_duplicate',
+      flowStage: 'ignored_duplicate',
+      finish: true,
+    }))
   })
 })

@@ -24,9 +24,10 @@ import { createApp } from './app.js'
 import { initializeApp, cert } from 'firebase-admin/app'
 import { runMigrations } from './scripts/migrate.js'
 import { sql } from './db/postgres.js'
+import { getFirebaseServiceAccount } from './config/firebaseAdmin.js'
 
-if (process.env.FIREBASE_SA_B64) {
-  const sa = JSON.parse(Buffer.from(process.env.FIREBASE_SA_B64, 'base64').toString())
+const sa = getFirebaseServiceAccount()
+if (sa) {
   initializeApp({ credential: cert(sa) })
 } else {
   initializeApp()

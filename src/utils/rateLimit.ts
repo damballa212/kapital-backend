@@ -7,9 +7,9 @@ export async function superaRateLimit(chatId: string): Promise<boolean> {
   const desde = new Date(Date.now() - VENTANA_MS).toISOString()
   const rows = await sql<[{ count: string }]>`
     SELECT COUNT(*)::text AS count
-    FROM transactions
+    FROM whatsapp_inbound_messages
     WHERE chat_id = ${chatId}
-      AND created_at > ${desde}
+      AND processing_started_at > ${desde}
   `
-  return parseInt(rows[0].count, 10) >= LIMIT
+  return parseInt(rows[0].count, 10) > LIMIT
 }

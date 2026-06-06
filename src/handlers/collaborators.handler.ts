@@ -40,7 +40,8 @@ export async function handleCreateColaborador(req: Request, res: Response): Prom
     if (msg.includes('unique') || msg.includes('duplicate') || msg.includes('collaborators_name_lower_idx')) {
       res.status(409).json({ error: 'Ya existe un colaborador con ese nombre' })
     } else {
-      res.status(500).json({ error: msg })
+      console.error('Error creando colaborador', err)
+      res.status(500).json({ error: 'Error creando colaborador' })
     }
   }
 }
@@ -64,7 +65,8 @@ export async function handleUpdateColaborador(req: Request, res: Response): Prom
     if (msg.includes('no encontrado')) {
       res.status(404).json({ error: msg })
     } else {
-      res.status(500).json({ error: msg })
+      console.error('Error actualizando colaborador', err)
+      res.status(500).json({ error: 'Error actualizando colaborador' })
     }
   }
 }
@@ -83,7 +85,8 @@ export async function handleDeleteColaborador(req: Request, res: Response): Prom
     if (msg.includes('no encontrado')) {
       res.status(404).json({ error: msg })
     } else {
-      res.status(500).json({ error: msg })
+      console.error('Error eliminando colaborador', err)
+      res.status(500).json({ error: 'Error eliminando colaborador' })
     }
   }
 }

@@ -9,6 +9,7 @@ import {
 const VALID_STATUSES = new Set([
   'received',
   'ignored_group',
+  'ignored_duplicate',
   'rate_limited',
   'parse_error',
   'rate_updated',
@@ -18,7 +19,7 @@ const VALID_STATUSES = new Set([
   'failed',
 ])
 
-const VALID_TYPES = new Set(['TRANSACCION', 'TASA', 'ERROR', 'AYUDA'])
+const VALID_TYPES = new Set(['TRANSACCION', 'TASA', 'HOY', 'YO', 'ERROR', 'AYUDA'])
 
 function isMissingWebhookTablesError(error: unknown): boolean {
   return Boolean(
