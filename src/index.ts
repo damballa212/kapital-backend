@@ -23,6 +23,7 @@ import { createApp } from './app.js'
 // ─── MODO EXPRESS (VPS) ──────────────────────────────────────────────────────
 import { initializeApp, cert } from 'firebase-admin/app'
 import { runMigrations } from './scripts/migrate.js'
+import { sql } from './db/postgres.js'
 
 if (process.env.FIREBASE_SA_B64) {
   const sa = JSON.parse(Buffer.from(process.env.FIREBASE_SA_B64, 'base64').toString())
@@ -36,5 +37,14 @@ await runMigrations()
 const app = createApp()
 
 const PORT = process.env.PORT ?? 3000
-app.listen(PORT, () => console.log(`Kapital backend running on port ${PORT}`))
+const server = app.listen(PORT, () => console.log(`Kapital backend running on port ${PORT}`))
+
+async function shutdown() {
+  server.close()
+  await sql.end({ timeout: 5 })
+  process.exit(0)
+}
+
+process.on('SIGTERM', shutdown)
+process.on('SIGINT',  shutdown)
 // ─────────────────────────────────────────────────────────────────────────────

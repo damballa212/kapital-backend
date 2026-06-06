@@ -18,6 +18,18 @@ async function enviarMensaje(chatId: string, texto: string): Promise<void> {
   }
 }
 
+async function enviarMensajeConRetry(chatId: string, texto: string, intentos = 3): Promise<void> {
+  for (let i = 0; i < intentos; i++) {
+    try {
+      await enviarMensaje(chatId, texto)
+      return
+    } catch (err) {
+      if (i === intentos - 1) throw err
+      await new Promise(r => setTimeout(r, 1000 * (i + 1)))
+    }
+  }
+}
+
 function mensajeDetallado(c: ComisionesCalculadas): string {
   const lineas = [
     '💸 TRANSACCIÓN CONFIRMADA 💸',
@@ -53,19 +65,17 @@ export async function enviarConfirmacionTransaccion(
   chatId: string,
   comisiones: ComisionesCalculadas
 ): Promise<void> {
-  await enviarMensaje(chatId, mensajeDetallado(comisiones))
-  // Pequeño delay antes del resumen (Evolution API lo puede manejar con delay param,
-  // pero lo hacemos secuencial para simplicidad en serverless)
+  await enviarMensajeConRetry(chatId, mensajeDetallado(comisiones))
   await new Promise(r => setTimeout(r, 2000))
-  await enviarMensaje(chatId, mensajeResumen(comisiones))
+  await enviarMensajeConRetry(chatId, mensajeResumen(comisiones))
 }
 
 export async function enviarConfirmacionTasa(chatId: string, tasa: number): Promise<void> {
-  await enviarMensaje(chatId, `✅ Tasa actualizada:\n💲 1 Dólar = ${formatGs(tasa)} Guaraníes 🇵🇾`)
+  await enviarMensajeConRetry(chatId, `✅ Tasa actualizada:\n💲 1 Dólar = ${formatGs(tasa)} Guaraníes 🇵🇾`)
 }
 
 export async function enviarError(chatId: string, mensaje: string): Promise<void> {
-  await enviarMensaje(chatId, `❌ ${mensaje}`)
+  await enviarMensajeConRetry(chatId, `❌ ${mensaje}`)
 }
 
 export async function enviarResumenHoy(chatId: string, r: ResumenHoy): Promise<void> {
@@ -92,7 +102,7 @@ export async function enviarResumenHoy(chatId: string, r: ResumenHoy): Promise<v
 
   lineas.push('', `🏦 Comisión Gabriel: $${formatUsd(r.comisionGabrielUsd)} USD`)
 
-  await enviarMensaje(chatId, lineas.join('\n'))
+  await enviarMensajeConRetry(chatId, lineas.join('\n'))
 }
 
 export async function enviarResumenYo(chatId: string, r: ResumenColaboradorMes): Promise<void> {
@@ -111,5 +121,5 @@ export async function enviarResumenYo(chatId: string, r: ResumenColaboradorMes):
     lineas.push('', '_(sin movimientos este mes)_')
   }
 
-  await enviarMensaje(chatId, lineas.join('\n'))
+  await enviarMensajeConRetry(chatId, lineas.join('\n'))
 }
