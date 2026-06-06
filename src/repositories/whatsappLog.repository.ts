@@ -25,6 +25,7 @@ function mapMessageRow(r: Record<string, unknown>): WhatsappInboundMessage {
     processingStartedAt: r.processing_started_at as Date,
     processingFinishedAt: r.processing_finished_at as Date | null,
     durationMs: r.duration_ms as number | null,
+    responseText: r.response_text as string | null,
   }
 }
 
@@ -105,6 +106,7 @@ export async function updateInboundMessageLog(
       parsed_type = COALESCE(${patch.parsedType ?? null}, parsed_type),
       transaction_id = COALESCE(${patch.transactionId ?? null}, transaction_id),
       error_message = COALESCE(${patch.errorMessage ?? null}, error_message),
+      response_text = COALESCE(${patch.responseText ?? null}, response_text),
       processing_finished_at = CASE WHEN ${patch.finish ?? false} THEN NOW() ELSE processing_finished_at END,
       duration_ms = CASE
         WHEN ${patch.finish ?? false} THEN EXTRACT(EPOCH FROM (NOW() - processing_started_at)) * 1000

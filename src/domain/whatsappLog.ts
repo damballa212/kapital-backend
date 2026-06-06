@@ -29,6 +29,7 @@ export type WhatsappInboundMessage = {
   processingStartedAt: Date
   processingFinishedAt: Date | null
   durationMs: number | null
+  responseText: string | null
 }
 
 export type WhatsappFlowEvent = {
@@ -68,6 +69,7 @@ export type WhatsappLogPatch = {
   parsedType?: Exclude<WhatsappParsedType, null>
   transactionId?: number
   errorMessage?: string
+  responseText?: string
   finish?: boolean
 }
 

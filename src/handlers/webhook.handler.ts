@@ -9,6 +9,10 @@ import {
   enviarResumenHoy,
   enviarResumenYo,
   enviarError,
+  buildTextoConfirmacionTransaccion,
+  buildTextoConfirmacionTasa,
+  buildTextoResumenHoy,
+  buildTextoResumenYo,
 } from '../services/whatsapp.service.js'
 import { superaRateLimit } from '../utils/rateLimit.js'
 import { normalizeWhatsAppPayload } from '../services/webhook-normalizer.service.js'
@@ -85,6 +89,8 @@ export async function handleWhatsAppWebhook(req: Request, res: Response): Promis
     })
 
     if (parsed.type === 'ERROR') {
+      const responseText = `❌ ${parsed.mensaje}`
+      await updateInboundMessageLog(messageLogId, { responseText })
       await enviarError(payload.chatId, parsed.mensaje)
       await recordWebhookFlowEvent(messageLogId, {
         stage: 'parse_error',
@@ -103,6 +109,8 @@ export async function handleWhatsAppWebhook(req: Request, res: Response): Promis
 
     if (parsed.type === 'TASA') {
       const tasa = await setTasa(parsed.tasa)
+      const responseText = buildTextoConfirmacionTasa(tasa)
+      await updateInboundMessageLog(messageLogId, { responseText })
       await enviarConfirmacionTasa(payload.chatId, tasa)
       await recordWebhookFlowEvent(messageLogId, {
         stage: 'rate_updated',
@@ -121,6 +129,8 @@ export async function handleWhatsAppWebhook(req: Request, res: Response): Promis
     if (parsed.type === 'HOY') {
       const tasaActual = await getCurrentRate()
       const resumen = await getResumenHoy(tasaActual)
+      const responseText = buildTextoResumenHoy(resumen)
+      await updateInboundMessageLog(messageLogId, { responseText })
       await enviarResumenHoy(payload.chatId, resumen)
       await recordWebhookFlowEvent(messageLogId, { stage: 'hoy_sent', status: 'ok', details: { totalTransacciones: resumen.totalTransacciones } })
       await updateInboundMessageLog(messageLogId, { status: 'confirmation_sent', flowStage: 'hoy_sent', parsedType: 'HOY', finish: true })
@@ -155,6 +165,8 @@ export async function handleWhatsAppWebhook(req: Request, res: Response): Promis
       }
 
       const resumen = await getResumenColaboradorMes(nombre, esGabriel, year, month)
+      const responseText = buildTextoResumenYo(resumen)
+      await updateInboundMessageLog(messageLogId, { responseText })
       await enviarResumenYo(payload.chatId, resumen)
       await recordWebhookFlowEvent(messageLogId, { stage: 'yo_sent', status: 'ok', details: { nombre } })
       await updateInboundMessageLog(messageLogId, { status: 'confirmation_sent', flowStage: 'yo_sent', parsedType: 'YO', finish: true })
@@ -164,6 +176,7 @@ export async function handleWhatsAppWebhook(req: Request, res: Response): Promis
     if (parsed.type === 'TRANSACCION') {
       const tasa = await getTasaVigente()
       const comisiones = await procesarTransaccion(parsed, payload, tasa)
+      const responseText = buildTextoConfirmacionTransaccion(comisiones)
       await recordWebhookFlowEvent(messageLogId, {
         stage: 'transaction_created',
         status: 'ok',
@@ -174,6 +187,7 @@ export async function handleWhatsAppWebhook(req: Request, res: Response): Promis
         flowStage: 'transaction_created',
         parsedType: 'TRANSACCION',
         transactionId: comisiones.transactionId,
+        responseText,
       })
       try {
         await enviarConfirmacionTransaccion(payload.chatId, comisiones)

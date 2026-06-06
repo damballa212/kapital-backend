@@ -32,14 +32,16 @@ async function enviarMensajeConRetry(chatId: string, texto: string, intentos = 3
       await enviarMensaje(chatId, texto)
       return
     } catch (err) {
-      if (err instanceof EvolutionClientError) throw err  // 4xx: no reintentar
+      if (err instanceof EvolutionClientError) throw err
       if (i === intentos - 1) throw err
       await new Promise(r => setTimeout(r, 1000 * (i + 1)))
     }
   }
 }
 
-function mensajeDetallado(c: ComisionesCalculadas): string {
+// ─── Text builders (exported for logging + UI display) ────────────────────
+
+export function buildMensajeDetallado(c: ComisionesCalculadas): string {
   const lineas = [
     '💸 TRANSACCIÓN CONFIRMADA 💸',
     '',
@@ -66,28 +68,19 @@ function mensajeDetallado(c: ComisionesCalculadas): string {
   return lineas.join('\n')
 }
 
-function mensajeResumen(c: ComisionesCalculadas): string {
+export function buildMensajeResumen(c: ComisionesCalculadas): string {
   return `${formatUsd(c.usdTotal)}$ - ${formatPct(c.comisionPct)} = ${formatUsd(c.usdNeto)}$ = ${formatGs(c.montoGs)} Gs`
 }
 
-export async function enviarConfirmacionTransaccion(
-  chatId: string,
-  comisiones: ComisionesCalculadas
-): Promise<void> {
-  await enviarMensajeConRetry(chatId, mensajeDetallado(comisiones))
-  await new Promise(r => setTimeout(r, 2000))
-  await enviarMensajeConRetry(chatId, mensajeResumen(comisiones))
+export function buildTextoConfirmacionTransaccion(c: ComisionesCalculadas): string {
+  return buildMensajeDetallado(c) + '\n\n' + buildMensajeResumen(c)
 }
 
-export async function enviarConfirmacionTasa(chatId: string, tasa: number): Promise<void> {
-  await enviarMensajeConRetry(chatId, `✅ Tasa actualizada:\n💲 1 Dólar = ${formatGs(tasa)} Guaraníes 🇵🇾`)
+export function buildTextoConfirmacionTasa(tasa: number): string {
+  return `✅ Tasa actualizada:\n💲 1 Dólar = ${formatGs(tasa)} Guaraníes 🇵🇾`
 }
 
-export async function enviarError(chatId: string, mensaje: string): Promise<void> {
-  await enviarMensajeConRetry(chatId, `❌ ${mensaje}`)
-}
-
-export async function enviarResumenHoy(chatId: string, r: ResumenHoy): Promise<void> {
+export function buildTextoResumenHoy(r: ResumenHoy): string {
   const ahora = new Date().toLocaleString('es-PY', {
     timeZone: 'America/Asuncion',
     day: '2-digit', month: '2-digit', year: 'numeric',
@@ -110,11 +103,10 @@ export async function enviarResumenHoy(chatId: string, r: ResumenHoy): Promise<v
   }
 
   lineas.push('', `🏦 Comisión Gabriel: $${formatUsd(r.comisionGabrielUsd)} USD`)
-
-  await enviarMensajeConRetry(chatId, lineas.join('\n'))
+  return lineas.join('\n')
 }
 
-export async function enviarResumenYo(chatId: string, r: ResumenColaboradorMes): Promise<void> {
+export function buildTextoResumenYo(r: ResumenColaboradorMes): string {
   const lineas = [
     `👤 *TUS COMISIONES — ${r.mes.toUpperCase()}*`,
     '',
@@ -130,5 +122,32 @@ export async function enviarResumenYo(chatId: string, r: ResumenColaboradorMes):
     lineas.push('', '_(sin movimientos este mes)_')
   }
 
-  await enviarMensajeConRetry(chatId, lineas.join('\n'))
+  return lineas.join('\n')
+}
+
+// ─── Senders ──────────────────────────────────────────────────────────────
+
+export async function enviarConfirmacionTransaccion(
+  chatId: string,
+  comisiones: ComisionesCalculadas
+): Promise<void> {
+  await enviarMensajeConRetry(chatId, buildMensajeDetallado(comisiones))
+  await new Promise(r => setTimeout(r, 2000))
+  await enviarMensajeConRetry(chatId, buildMensajeResumen(comisiones))
+}
+
+export async function enviarConfirmacionTasa(chatId: string, tasa: number): Promise<void> {
+  await enviarMensajeConRetry(chatId, buildTextoConfirmacionTasa(tasa))
+}
+
+export async function enviarError(chatId: string, mensaje: string): Promise<void> {
+  await enviarMensajeConRetry(chatId, `❌ ${mensaje}`)
+}
+
+export async function enviarResumenHoy(chatId: string, r: ResumenHoy): Promise<void> {
+  await enviarMensajeConRetry(chatId, buildTextoResumenHoy(r))
+}
+
+export async function enviarResumenYo(chatId: string, r: ResumenColaboradorMes): Promise<void> {
+  await enviarMensajeConRetry(chatId, buildTextoResumenYo(r))
 }
