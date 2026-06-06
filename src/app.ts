@@ -13,12 +13,18 @@ import {
 import { handleGetPresets, handleSavePreset, handleDeletePreset } from './handlers/presets.handler.js'
 import { handleGetWebhookMessage, handleGetWebhookMessages } from './handlers/webhookMessages.handler.js'
 import { withAuth } from './middleware/auth.js'
+import { verifyEvolutionSecret } from './middleware/webhookAuth.js'
+
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN ?? 'https://kapital-app-prod.web.app'
 
 export function createApp(): express.Express {
   const app = express()
 
   app.use((req, res, next) => {
-    res.setHeader('Access-Control-Allow-Origin', '*')
+    const origin = req.headers.origin
+    if (origin === ALLOWED_ORIGIN || !origin) {
+      res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN)
+    }
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
     res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type')
     if (req.method === 'OPTIONS') return res.sendStatus(204)
@@ -27,7 +33,7 @@ export function createApp(): express.Express {
 
   app.use(express.json({ limit: '1mb' }))
 
-  app.post('/webhook/whatsapp',  handleWhatsAppWebhook)
+  app.post('/webhook/whatsapp', verifyEvolutionSecret, handleWhatsAppWebhook)
   app.get('/webhook/messages',   withAuth(handleGetWebhookMessages))
   app.get('/webhook/messages/:id', withAuth(handleGetWebhookMessage))
   app.get('/transactions',           withAuth(handleGetTransacciones))
