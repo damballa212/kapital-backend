@@ -9,6 +9,13 @@ const updateInboundMessageLogMock = vi.fn()
 const enviarConfirmacionTransaccionMock = vi.fn()
 const getTasaVigenteMock = vi.fn()
 const procesarTransaccionMock = vi.fn()
+const buildTextoConfirmacionTransaccionMock = vi.fn()
+
+class DuplicateTransactionErrorMock extends Error {
+  constructor(public readonly idempotencyKey: string) {
+    super('duplicate_transaction')
+  }
+}
 
 vi.mock('../repositories/whatsappLog.repository.js', () => ({
   createInboundMessageLog: createInboundMessageLogMock,
@@ -20,6 +27,7 @@ vi.mock('../repositories/whatsappLog.repository.js', () => ({
 }))
 
 vi.mock('../services/whatsapp.service.js', () => ({
+  buildTextoConfirmacionTransaccion: buildTextoConfirmacionTransaccionMock,
   enviarConfirmacionTransaccion: enviarConfirmacionTransaccionMock,
   enviarConfirmacionTasa: vi.fn(),
   enviarError: vi.fn(),
@@ -32,6 +40,7 @@ vi.mock('../services/rate.service.js', () => ({
 
 vi.mock('../services/transaction.service.js', () => ({
   procesarTransaccion: procesarTransaccionMock,
+  DuplicateTransactionError: DuplicateTransactionErrorMock,
 }))
 
 vi.mock('../utils/rateLimit.js', () => ({
@@ -88,6 +97,7 @@ describe('WhatsApp webhook HTTP integration', () => {
     updateInboundMessageLogMock.mockResolvedValue(undefined)
     getTasaVigenteMock.mockResolvedValue(7300)
     procesarTransaccionMock.mockResolvedValue({ transactionId: 55 })
+    buildTextoConfirmacionTransaccionMock.mockReturnValue('confirmacion tx')
     enviarConfirmacionTransaccionMock.mockResolvedValue(undefined)
 
   })

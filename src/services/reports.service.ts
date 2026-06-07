@@ -1,10 +1,16 @@
 import ExcelJS from 'exceljs'
 import PDFDocument from 'pdfkit'
+import { readFileSync } from 'fs'
+import { fileURLToPath } from 'url'
+import { dirname, join } from 'path'
 import { findTransactionsForExport } from '../repositories/transaction.repository.js'
 import type { FiltroReporte, Transaction } from '../domain/transaction.js'
 import { formatGs, formatUsd } from '../utils/formatters.js'
 
 const TZ = 'America/Asuncion'
+const DIR = dirname(fileURLToPath(import.meta.url))
+const LOGO_PATH = join(DIR, '..', '..', 'assets', 'kapital-logo.png')
+const LOGO = readFileSync(LOGO_PATH)
 
 const ALL_FIELDS = [
   { key: 'id',                     label: 'ID' },
@@ -241,14 +247,12 @@ export async function generarPDF(filtros: FiltroReporte): Promise<Buffer> {
     doc.rect(0, 0, PW, HDRH).fill(HDR_BG)
     doc.rect(0, HDRH, PW, 4).fill(ACCENT)
 
-    doc.rect(L, 10, 42, 42).fill(GREEN)
-    doc.fillColor(WHITE).fontSize(22).font('Helvetica-Bold')
-      .text('K', L, 16, { width: 42, align: 'center', lineBreak: false })
-
+    doc.roundedRect(L, 9, 84, 45, 5).fill(WHITE)
+    doc.image(LOGO, L + 7, 13, { width: 70 })
     doc.fillColor(WHITE).fontSize(19).font('Helvetica-Bold')
-      .text('KAPITAL', L + 52, 11, { lineBreak: false })
+      .text('KAPITAL', L + 100, 11, { lineBreak: false })
     doc.fillColor(HDRSUB).fontSize(8.5).font('Helvetica')
-      .text('Casa de Cambios  ·  Reporte de Transacciones', L + 52, 33, { lineBreak: false })
+      .text('Casa de Cambios  ·  Reporte de Transacciones', L + 100, 33, { lineBreak: false })
 
     const gen = new Date().toLocaleString('es-PY', { timeZone: TZ })
     doc.fillColor(HDRDATE).fontSize(7.5).font('Helvetica')

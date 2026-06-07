@@ -8,6 +8,7 @@ const enviarConfirmacionTransaccionMock = vi.fn()
 const enviarErrorMock = vi.fn()
 const getTasaVigenteMock = vi.fn()
 const procesarTransaccionMock = vi.fn()
+const buildTextoConfirmacionTransaccionMock = vi.fn()
 
 class DuplicateTransactionErrorMock extends Error {
   constructor(public readonly idempotencyKey: string) {
@@ -22,6 +23,7 @@ vi.mock('../repositories/whatsappLog.repository.js', () => ({
 }))
 
 vi.mock('../services/whatsapp.service.js', () => ({
+  buildTextoConfirmacionTransaccion: buildTextoConfirmacionTransaccionMock,
   enviarConfirmacionTransaccion: enviarConfirmacionTransaccionMock,
   enviarConfirmacionTasa: vi.fn(),
   enviarError: enviarErrorMock,
@@ -116,6 +118,7 @@ describe('handleWhatsAppWebhook tracing', () => {
     enviarErrorMock.mockResolvedValue(undefined)
     getTasaVigenteMock.mockResolvedValue(7300)
     procesarTransaccionMock.mockResolvedValue({ transactionId: 42 })
+    buildTextoConfirmacionTransaccionMock.mockReturnValue('confirmacion tx')
   })
 
   it('logs parse errors so the bot monitor can show failed inbound messages', async () => {
