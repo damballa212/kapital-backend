@@ -1,5 +1,6 @@
 import { getAuth } from 'firebase-admin/auth'
 import type { Request, Response, NextFunction } from 'express'
+import { isEmailAllowed } from '../repositories/allowedUser.repository.js'
 
 export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   const header = req.headers.authorization
@@ -8,8 +9,14 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     return
   }
   try {
+    const decoded = await getAuth().verifyIdToken(header.slice(7))
+    const email = decoded.email ?? ''
+    if (!(await isEmailAllowed(email))) {
+      res.status(403).json({ error: 'NOT_WHITELISTED' })
+      return
+    }
     res.locals ??= {}
-    res.locals.auth = await getAuth().verifyIdToken(header.slice(7))
+    res.locals.auth = decoded
     next()
   } catch {
     res.status(401).json({ error: 'Token inválido' })
