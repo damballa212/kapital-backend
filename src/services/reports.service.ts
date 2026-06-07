@@ -33,7 +33,7 @@ function getFieldValue(r: Transaction, key: string): string | number {
     case 'id':                  return r.id
     case 'fecha':               return fechaPY(r.fecha)
     case 'cliente':             return r.cliente
-    case 'colaborador':         return r.colaborador ?? ''
+    case 'colaborador':         return r.colaborador ?? 'Gabriel Zambrano'
     case 'usd_total':           return r.usdTotal
     case 'comision':            return r.comision
     case 'usd_neto':            return r.usdNeto

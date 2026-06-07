@@ -95,7 +95,7 @@ export async function procesarTransaccion(
       idempotencyKey,
       fecha: new Date(),
       chatId: meta.chatId,
-      colaborador: comisiones.colaborador !== 'Gabriel Zambrano' || parsed.colaborador ? comisiones.colaborador : null,
+      colaborador: comisiones.colaborador,
       cliente: comisiones.cliente,
       usdTotal: comisiones.usdTotal,
       comision: comisiones.comisionPct,

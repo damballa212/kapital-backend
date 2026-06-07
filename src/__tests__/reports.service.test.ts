@@ -45,6 +45,21 @@ describe('generarCSV', () => {
       '"Cliente ""Especial"", SA","Primera linea\nSegunda linea"',
     ].join('\n'))
   })
+
+  it('renders null collaborator as Gabriel Zambrano for legacy rows', async () => {
+    findTransactionsForExportMock.mockResolvedValue([
+      { ...baseTransaction, colaborador: null, cliente: 'Ana Martinez' },
+    ])
+
+    const csv = await generarCSV({
+      fields: ['cliente', 'colaborador'],
+    })
+
+    expect(csv).toBe([
+      'Cliente,Colaborador',
+      'Ana Martinez,Gabriel Zambrano',
+    ].join('\n'))
+  })
 })
 
 describe('generarPDF', () => {

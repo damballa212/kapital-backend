@@ -55,4 +55,28 @@ describe('procesarTransaccion persistence metadata', () => {
 
     expect(result.transactionId).toBe(42)
   })
+
+  it('persists Gabriel Zambrano when the transaction omits collaborator', async () => {
+    await procesarTransaccion({
+      type: 'TRANSACCION',
+      colaborador: null,
+      overridePct: null,
+      cliente: 'Ana Martinez',
+      usdTotal: 500,
+      comisionPct: 15,
+      usdNeto: null,
+      montoGs: null,
+    }, {
+      chatId: '595971525301@s.whatsapp.net',
+      content: '#TRANSACCION Cliente Ana Martinez: 500$ - 15%',
+      messageId: 'MSG-DEFAULT-GABRIEL',
+      timestamp: '1710000001',
+      userName: 'Gabriel Zambrano',
+    }, 5900)
+
+    expect(insertTransactionMock).toHaveBeenCalledWith(
+      expect.objectContaining({ colaborador: 'Gabriel Zambrano' }),
+      expect.any(Function)
+    )
+  })
 })
