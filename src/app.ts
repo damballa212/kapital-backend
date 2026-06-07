@@ -16,8 +16,6 @@ import { handleGetConversations, handleGetWebhookMessage, handleGetWebhookMessag
 import { handleAuthMe } from './handlers/authMe.handler.js'
 import { withAuth } from './middleware/auth.js'
 import { verifyEvolutionSecret } from './middleware/webhookAuth.js'
-import { handleSSE } from './handlers/sse.handler.js'
-import { handleCreateRealtimeSession } from './handlers/realtimeSession.handler.js'
 import { sql } from './db/postgres.js'
 
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN ?? 'https://kapital-app-prod.web.app'
@@ -41,24 +39,22 @@ export function createApp(): express.Express {
   app.get('/auth/me', withAuth(handleAuthMe))
   app.post('/webhook/whatsapp', verifyEvolutionSecret, handleWhatsAppWebhook)
   app.get('/webhook/conversations', withAuth(handleGetConversations))
-  app.get('/webhook/messages',   withAuth(handleGetWebhookMessages))
-  app.get('/webhook/messages/:id', withAuth(handleGetWebhookMessage))
-  app.get('/transactions',           withAuth(handleGetTransacciones))
-  app.delete('/transactions/:id',    withAuth(handleDeleteTransaccion))
-  app.get('/dashboard',          withAuth(handleGetDashboard))
-  app.get('/export/preview',     withAuth(handleExportPreview))
-  app.get('/export',             withAuth(handleExport))
-  app.get('/rates/current',           withAuth(handleGetTasa))
-  app.get('/clients',                 withAuth(handleSearchClients))
-  app.get('/collaborators',           withAuth(handleGetColaboradores))
-  app.post('/collaborators',          withAuth(handleCreateColaborador))
-  app.put('/collaborators/:id',       withAuth(handleUpdateColaborador))
-  app.delete('/collaborators/:id',    withAuth(handleDeleteColaborador))
-  app.get('/export/presets',     withAuth(handleGetPresets))
-  app.post('/export/presets',    withAuth(handleSavePreset))
+  app.get('/webhook/messages',      withAuth(handleGetWebhookMessages))
+  app.get('/webhook/messages/:id',  withAuth(handleGetWebhookMessage))
+  app.get('/transactions',          withAuth(handleGetTransacciones))
+  app.delete('/transactions/:id',   withAuth(handleDeleteTransaccion))
+  app.get('/dashboard',             withAuth(handleGetDashboard))
+  app.get('/export/preview',        withAuth(handleExportPreview))
+  app.get('/export',                withAuth(handleExport))
+  app.get('/rates/current',         withAuth(handleGetTasa))
+  app.get('/clients',               withAuth(handleSearchClients))
+  app.get('/collaborators',         withAuth(handleGetColaboradores))
+  app.post('/collaborators',        withAuth(handleCreateColaborador))
+  app.put('/collaborators/:id',     withAuth(handleUpdateColaborador))
+  app.delete('/collaborators/:id',  withAuth(handleDeleteColaborador))
+  app.get('/export/presets',        withAuth(handleGetPresets))
+  app.post('/export/presets',       withAuth(handleSavePreset))
   app.delete('/export/presets/:id', withAuth(handleDeletePreset))
-  app.post('/realtime/session', withAuth(handleCreateRealtimeSession))
-  app.get('/realtime/events', handleSSE)
   app.get('/health', async (_req, res) => {
     try {
       await sql`SELECT 1`

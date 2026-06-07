@@ -4,8 +4,12 @@ import { withAuth } from '../middleware/auth.js'
 
 vi.mock('firebase-admin/auth', () => ({
   getAuth: () => ({
-    verifyIdToken: vi.fn().mockResolvedValue({ uid: 'test-user' }),
+    verifyIdToken: vi.fn().mockResolvedValue({ uid: 'test-user', email: 'test@example.com' }),
   }),
+}))
+
+vi.mock('../repositories/allowedUser.repository.js', () => ({
+  isEmailAllowed: vi.fn().mockResolvedValue(true),
 }))
 
 describe('withAuth', () => {
