@@ -1,9 +1,6 @@
 import { insertRate, getCurrentRate } from '../repositories/rate.repository.js'
-import { emit } from './eventBus.js'
-
 export async function setTasa(tasa: number): Promise<number> {
   await insertRate(tasa)
-  emit({ type: 'rate.updated', rate: tasa })
   return tasa
 }
 

@@ -3,7 +3,6 @@ import type { TransactionSql } from 'postgres'
 import { generarIdempotencyKey } from '../utils/idempotency.js'
 import { insertTransaction } from '../repositories/transaction.repository.js'
 import { resolverColaboradorDb } from './collaborator.service.js'
-import { emit } from './eventBus.js'
 import type { ParsedTransaccion, WhatsAppPayload } from '../domain/webhook.js'
 import type { ComisionesCalculadas } from '../domain/transaction.js'
 
@@ -134,6 +133,5 @@ export async function procesarTransaccion(
 
   if (isDuplicate) throw new DuplicateTransactionError(idempotencyKey)
 
-  emit({ type: 'transaction.created', transactionId: transactionId! })
   return { ...comisiones, transactionId }
 }

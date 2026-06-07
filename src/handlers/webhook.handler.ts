@@ -27,8 +27,6 @@ import {
   updateInboundMessageLog,
 } from '../repositories/whatsappLog.repository.js'
 import type { WhatsappInboundStatus } from '../domain/whatsappLog.js'
-import { emit } from '../services/eventBus.js'
-
 export async function handleWhatsAppWebhook(req: Request, res: Response): Promise<void> {
   // Evolution API espera 200 siempre para no reintentar
   res.sendStatus(200)
@@ -36,8 +34,7 @@ export async function handleWhatsAppWebhook(req: Request, res: Response): Promis
   const payload = normalizeWhatsAppPayload(req.body as Record<string, unknown>)
   if (!payload) return
   const messageLogId = await createInboundMessageLog(payload, req.body as Record<string, unknown>)
-  emit({ type: 'webhook.message.created', messageId: messageLogId })
-  await recordWebhookFlowEvent(messageLogId, {
+await recordWebhookFlowEvent(messageLogId, {
     stage: 'received',
     status: 'ok',
     details: {
@@ -172,8 +169,10 @@ export async function handleWhatsAppWebhook(req: Request, res: Response): Promis
           nombre    = resolved.colaborador
           esGabriel = resolved.pct === 0
         } catch {
-          await enviarError(payload.chatId, 'No te reconozco como colaborador. Asegurate de que tu nombre en WhatsApp coincida con el registrado.')
-          await updateInboundMessageLog(messageLogId, { status: 'parse_error', flowStage: 'yo_not_found', parsedType: 'YO', errorMessage: 'colaborador no identificado', finish: true })
+          const errMsg = 'No te reconozco como colaborador. Asegurate de que tu nombre en WhatsApp coincida con el registrado.'
+          await updateInboundMessageLog(messageLogId, { responseText: `❌ ${errMsg}` })
+          await enviarError(payload.chatId, errMsg)
+          await updateInboundMessageLog(messageLogId, { status: 'parse_error', flowStage: 'yo_not_found', parsedType: 'YO', errorMessage: errMsg, finish: true })
           return
         }
       }
