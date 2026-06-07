@@ -140,6 +140,10 @@ export async function enviarConfirmacionTasa(chatId: string, tasa: number): Prom
   await enviarMensajeConRetry(chatId, buildTextoConfirmacionTasa(tasa))
 }
 
+export async function enviarAyuda(chatId: string, texto: string): Promise<void> {
+  await enviarMensajeConRetry(chatId, texto)
+}
+
 export async function enviarError(chatId: string, mensaje: string): Promise<void> {
   await enviarMensajeConRetry(chatId, `❌ ${mensaje}`)
 }

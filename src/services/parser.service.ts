@@ -23,7 +23,7 @@ function parseNum(s: string): number {
   return parseFloat(clean)
 }
 
-const AYUDA_MSG = `📋 *COMANDOS DISPONIBLES*
+export const AYUDA_MSG = `📋 *COMANDOS DISPONIBLES*
 
 💱 *Actualizar tasa:*
 #TASA [monto]
@@ -31,7 +31,6 @@ Ej: #TASA 7300
 
 💸 *Registrar transacción:*
 #TRANSACCION Cliente [nombre]: [monto]$ - [%]
-#TRANSACCION Cliente [nombre] [monto]$ - [%]
 
 Ejemplos:
 • #TRANSACCION Cliente María: 500$ - 15%
@@ -41,10 +40,12 @@ Ejemplos:
 Con colaborador:
 • #TRANSACCION Colaborador Patty Cliente Ana: 300$ - 15%
 • #TRANSACCION Colaborador Anael(3%) Cliente Luis: 800$ - 15%
-• #TRANSACCION Colaborador Patty Cliente Juan Carlos 300$ - 13%
 
-Con resultado incluido (opcional):
-• #TRANSACCION Cliente Marta: 500$ - 15% = 425$ = 2.507.500 Gs
+📊 *Ver resumen del día:*
+#HOY
+
+👤 *Ver tu resumen del mes:*
+#YO
 
 Enviá *#AYUDA* en cualquier momento para ver esto.`
 
@@ -52,7 +53,7 @@ export function parsearMensaje(content: string): ParseResult {
   const trimmed = content.trim()
 
   if (trimmed.toUpperCase() === '#AYUDA') {
-    return { type: 'ERROR', mensaje: AYUDA_MSG }
+    return { type: 'AYUDA' }
   }
 
   if (trimmed.toUpperCase() === '#HOY') {
@@ -113,6 +114,6 @@ export function parsearMensaje(content: string): ParseResult {
 
   return {
     type: 'ERROR',
-    mensaje: `Comando no reconocido: "${trimmed.slice(0, 20)}"\n\nComandos disponibles:\n• #TASA\n• #TRANSACCION\n• #AYUDA`,
+    mensaje: `Comando no reconocido: "${trimmed.slice(0, 20)}"\n\nComandos disponibles:\n• #TASA\n• #TRANSACCION\n• #HOY\n• #YO\n• #AYUDA`,
   }
 }

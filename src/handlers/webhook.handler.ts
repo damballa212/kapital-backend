@@ -1,6 +1,6 @@
 
 import type { Request, Response } from 'express'
-import { parsearMensaje } from '../services/parser.service.js'
+import { parsearMensaje, AYUDA_MSG } from '../services/parser.service.js'
 import { procesarTransaccion, DuplicateTransactionError } from '../services/transaction.service.js'
 import { setTasa, getTasaVigente } from '../services/rate.service.js'
 import {
@@ -8,6 +8,7 @@ import {
   enviarConfirmacionTasa,
   enviarResumenHoy,
   enviarResumenYo,
+  enviarAyuda,
   enviarError,
   buildTextoConfirmacionTransaccion,
   buildTextoConfirmacionTasa,
@@ -87,6 +88,19 @@ export async function handleWhatsAppWebhook(req: Request, res: Response): Promis
       status: parsed.type === 'ERROR' ? 'failed' : 'ok',
       details: { type: parsed.type },
     })
+
+    if (parsed.type === 'AYUDA') {
+      await updateInboundMessageLog(messageLogId, { responseText: AYUDA_MSG })
+      await enviarAyuda(payload.chatId, AYUDA_MSG)
+      await recordWebhookFlowEvent(messageLogId, { stage: 'hoy_sent', status: 'ok', details: {} })
+      await updateInboundMessageLog(messageLogId, {
+        status: 'confirmation_sent',
+        flowStage: 'confirmation_sent',
+        parsedType: 'ERROR',
+        finish: true,
+      })
+      return
+    }
 
     if (parsed.type === 'ERROR') {
       const responseText = `❌ ${parsed.mensaje}`

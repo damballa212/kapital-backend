@@ -39,9 +39,13 @@ export type ParsedYo = {
   type: 'YO'
 }
 
+export type ParsedAyuda = {
+  type: 'AYUDA'
+}
+
 export type ParseError = {
   type: 'ERROR'
   mensaje: string
 }
 
-export type ParseResult = ParsedTasa | ParsedTransaccion | ParsedHoy | ParsedYo | ParseError
+export type ParseResult = ParsedTasa | ParsedTransaccion | ParsedHoy | ParsedYo | ParsedAyuda | ParseError
