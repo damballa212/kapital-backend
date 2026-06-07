@@ -1,7 +1,16 @@
 import { IncomingMessage, ServerResponse } from 'node:http'
 import { Socket } from 'node:net'
 import type { HttpRequest, HttpResponseInit } from '@azure/functions'
+import { initializeApp, cert } from 'firebase-admin/app'
+import { getFirebaseServiceAccount } from './config/firebaseAdmin.js'
 import { createApp } from './app.js'
+
+const sa = getFirebaseServiceAccount()
+if (sa) {
+  initializeApp({ credential: cert(sa) })
+} else {
+  initializeApp()
+}
 
 const expressApp = createApp()
 

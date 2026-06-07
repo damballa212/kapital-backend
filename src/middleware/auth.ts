@@ -9,7 +9,10 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     return
   }
   try {
-    const decoded = await getAuth().verifyIdToken(header.slice(7))
+    const verifyTimeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('verifyIdToken timeout')), 10_000)
+    )
+    const decoded = await Promise.race([getAuth().verifyIdToken(header.slice(7)), verifyTimeout])
     const email = decoded.email ?? ''
     if (!(await isEmailAllowed(email))) {
       res.status(403).json({ error: 'NOT_WHITELISTED' })
@@ -18,7 +21,8 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     res.locals ??= {}
     res.locals.auth = decoded
     next()
-  } catch {
+  } catch (err) {
+    console.error('[auth] error:', err instanceof Error ? err.message : err)
     res.status(401).json({ error: 'Token inválido' })
   }
 }
