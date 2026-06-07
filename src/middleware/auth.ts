@@ -8,7 +8,8 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     return
   }
   try {
-    await getAuth().verifyIdToken(header.slice(7))
+    res.locals ??= {}
+    res.locals.auth = await getAuth().verifyIdToken(header.slice(7))
     next()
   } catch {
     res.status(401).json({ error: 'Token inválido' })

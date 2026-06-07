@@ -1,14 +1,12 @@
 import type { Request, Response } from 'express'
-import { getAuth } from 'firebase-admin/auth'
 import { eventBus, type AppEvent } from '../services/eventBus.js'
+import { consumeRealtimeSessionToken } from '../services/realtime-session.service.js'
 
 export async function handleSSE(req: Request, res: Response): Promise<void> {
   const token = req.query.token as string
   if (!token) { res.sendStatus(401); return }
 
-  try {
-    await getAuth().verifyIdToken(token)
-  } catch {
+  if (!consumeRealtimeSessionToken(token)) {
     res.sendStatus(401)
     return
   }
