@@ -247,12 +247,11 @@ export async function generarPDF(filtros: FiltroReporte): Promise<Buffer> {
     doc.rect(0, 0, PW, HDRH).fill(HDR_BG)
     doc.rect(0, HDRH, PW, 4).fill(ACCENT)
 
-    doc.roundedRect(L, 9, 84, 45, 5).fill(WHITE)
-    doc.image(LOGO, L + 7, 13, { width: 70 })
+    doc.image(LOGO, L, 10, { width: 58 })
     doc.fillColor(WHITE).fontSize(19).font('Helvetica-Bold')
-      .text('KAPITAL', L + 100, 11, { lineBreak: false })
+      .text('KAPITAL', L + 72, 11, { lineBreak: false })
     doc.fillColor(HDRSUB).fontSize(8.5).font('Helvetica')
-      .text('Casa de Cambios  ·  Reporte de Transacciones', L + 100, 33, { lineBreak: false })
+      .text('Casa de Cambios  ·  Reporte de Transacciones', L + 72, 33, { lineBreak: false })
 
     const gen = new Date().toLocaleString('es-PY', { timeZone: TZ })
     doc.fillColor(HDRDATE).fontSize(7.5).font('Helvetica')
