@@ -1,6 +1,7 @@
 import { getAuth } from 'firebase-admin/auth'
 import type { Request, Response, NextFunction } from 'express'
 import { isEmailAllowed } from '../repositories/allowedUser.repository.js'
+import { logger } from '../utils/logger.js'
 
 export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   const header = req.headers.authorization
@@ -22,7 +23,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     res.locals.auth = decoded
     next()
   } catch (err) {
-    console.error('[auth] error:', err instanceof Error ? err.message : err)
+    logger.error('[auth] verifyIdToken failed', { error: err instanceof Error ? err.message : String(err) })
     res.status(401).json({ error: 'Token inválido' })
   }
 }
@@ -36,7 +37,7 @@ export function withAuth(handler: Handler): Handler {
     try {
       await handler(req, res)
     } catch (err: unknown) {
-      console.error('Authenticated handler failed', err)
+      logger.error('Authenticated handler failed', { error: err instanceof Error ? err.message : String(err) })
       if (!res.headersSent) {
         res.status(500).json({ error: 'Error interno' })
       }
