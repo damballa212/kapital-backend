@@ -1,8 +1,9 @@
 import { Logtail } from '@logtail/node'
 
 const token = process.env.BETTERSTACK_TOKEN
+const endpoint = process.env.BETTERSTACK_HOST
 
-const logtail = token ? new Logtail(token) : null
+const logtail = token ? new Logtail(token, { endpoint }) : null
 
 type Level = 'info' | 'warn' | 'error'
 
