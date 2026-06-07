@@ -7,7 +7,7 @@ vi.mock('../repositories/transaction.repository.js', () => ({
   findTransactionsForExport: findTransactionsForExportMock,
 }))
 
-const { generarCSV } = await import('../services/reports.service.js')
+const { generarCSV, generarPDF } = await import('../services/reports.service.js')
 
 const baseTransaction: Transaction = {
   id: 1,
@@ -44,5 +44,22 @@ describe('generarCSV', () => {
       'Cliente,Observaciones',
       '"Cliente ""Especial"", SA","Primera linea\nSegunda linea"',
     ].join('\n'))
+  })
+})
+
+describe('generarPDF', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('generates a valid PDF without loading the raster logo asset', async () => {
+    findTransactionsForExportMock.mockResolvedValue([baseTransaction])
+
+    const pdf = await generarPDF({
+      fields: ['fecha', 'cliente', 'usd_total'],
+    })
+
+    expect(pdf.subarray(0, 4).toString()).toBe('%PDF')
+    expect(pdf.length).toBeGreaterThan(1000)
   })
 })

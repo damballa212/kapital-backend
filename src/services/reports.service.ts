@@ -1,16 +1,10 @@
 import ExcelJS from 'exceljs'
 import PDFDocument from 'pdfkit'
-import { readFileSync } from 'fs'
-import { fileURLToPath } from 'url'
-import { dirname, join } from 'path'
 import { findTransactionsForExport } from '../repositories/transaction.repository.js'
 import type { FiltroReporte, Transaction } from '../domain/transaction.js'
 import { formatGs, formatUsd } from '../utils/formatters.js'
 
 const TZ = 'America/Asuncion'
-const DIR = dirname(fileURLToPath(import.meta.url))
-const LOGO_PATH = join(DIR, '..', '..', 'assets', 'kapital-logo.png')
-const LOGO = readFileSync(LOGO_PATH)
 
 const ALL_FIELDS = [
   { key: 'id',                     label: 'ID' },
@@ -242,16 +236,47 @@ export async function generarPDF(filtros: FiltroReporte): Promise<Buffer> {
   let pageNum    = 0
   let totalPages = 0
 
+  function drawKapitalMark(x: number, y: number, size: number) {
+    const s = size / 64
+    const p = (points: Array<[number, number]>) => points.map(([px, py]) => [x + px * s, y + py * s])
+
+    doc.save()
+
+    doc.polygon(...p([
+      [10, 8], [25, 8], [25, 28], [10, 42],
+    ])).fill('#DCE3DF')
+
+    doc.polygon(...p([
+      [31, 8], [56, 8], [56, 33], [48, 25], [35, 38],
+      [28, 31], [42, 17], [31, 17],
+    ])).fill('#DCE3DF')
+
+    doc.polygon(...p([
+      [10, 35], [24, 22], [24, 56], [10, 56],
+    ])).fill(ACCENT)
+
+    doc.polygon(...p([
+      [25, 38], [35, 28], [56, 49], [56, 56], [45, 56],
+      [32, 43], [25, 50],
+    ])).fill(ACCENT)
+
+    doc.polygon(...p([
+      [43, 39], [56, 26], [56, 43], [49, 50],
+    ])).fill(ACCENT)
+
+    doc.restore()
+  }
+
   // ── Shell (header + footer) en cada página ────────────────────────────────
   function shell(pg: number, tot: number) {
     doc.rect(0, 0, PW, HDRH).fill(HDR_BG)
     doc.rect(0, HDRH, PW, 4).fill(ACCENT)
 
-    doc.image(LOGO, L, 10, { width: 58 })
+    drawKapitalMark(L, 11, 38)
     doc.fillColor(WHITE).fontSize(19).font('Helvetica-Bold')
-      .text('KAPITAL', L + 72, 11, { lineBreak: false })
+      .text('KAPITAL', L + 50, 11, { lineBreak: false })
     doc.fillColor(HDRSUB).fontSize(8.5).font('Helvetica')
-      .text('Casa de Cambios  ·  Reporte de Transacciones', L + 72, 33, { lineBreak: false })
+      .text('Casa de Cambios  ·  Reporte de Transacciones', L + 50, 33, { lineBreak: false })
 
     const gen = new Date().toLocaleString('es-PY', { timeZone: TZ })
     doc.fillColor(HDRDATE).fontSize(7.5).font('Helvetica')
