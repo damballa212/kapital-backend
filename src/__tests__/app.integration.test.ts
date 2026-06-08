@@ -186,21 +186,22 @@ async function invokeApp(
   }
 
   res.assignSocket(socket)
-  const originalWrite = res.write.bind(res)
-  const originalEnd = res.end.bind(res)
 
-  res.write = ((chunk: unknown, ...args: unknown[]) => {
-    if (chunk) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)))
-    return originalWrite(chunk as Parameters<typeof originalWrite>[0], ...(args as []))
-  }) as typeof res.write
-
-  res.end = ((chunk?: unknown, ...args: unknown[]) => {
-    if (chunk) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)))
-    return originalEnd(chunk as Parameters<typeof originalEnd>[0], ...(args as []))
-  }) as typeof res.end
-
+  // Resolvemos en res.end() directamente en lugar de esperar el evento 'finish',
+  // porque Socket sin conexión no emite 'finish' de forma confiable.
   const done = new Promise<{ status: number; body: string }>((resolve, reject) => {
-    res.on('finish', () => resolve({ status: res.statusCode, body: Buffer.concat(chunks).toString('utf8') }))
+    const originalEnd = res.end.bind(res)
+    res.end = ((chunk?: unknown, ...args: unknown[]) => {
+      if (chunk) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)))
+      resolve({ status: res.statusCode, body: Buffer.concat(chunks).toString('utf8') })
+      return originalEnd(chunk as Parameters<typeof originalEnd>[0], ...(args as []))
+    }) as typeof res.end
+
+    res.write = ((chunk: unknown, ...args: unknown[]) => {
+      if (chunk) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)))
+      return true
+    }) as typeof res.write
+
     res.on('error', reject)
   })
 
