@@ -248,20 +248,20 @@ await recordWebhookFlowEvent(messageLogId, {
       }).catch(() => undefined)
       return
     }
-    const mensaje = err instanceof Error ? err.message : 'Error interno'
-    await enviarError(payload.chatId, mensaje).catch(() => undefined)
-    const status: WhatsappInboundStatus = mensaje.toLowerCase().includes('confirm')
+    const mensajeInterno = err instanceof Error ? err.message : 'Error interno'
+    await enviarError(payload.chatId, 'Ocurrió un error interno. Por favor reintentá en unos segundos.').catch(() => undefined)
+    const status: WhatsappInboundStatus = mensajeInterno.toLowerCase().includes('confirm')
       ? 'confirmation_failed'
       : 'failed'
     await recordWebhookFlowEvent(messageLogId, {
       stage: status,
       status: 'failed',
-      details: { mensaje },
+      details: { mensaje: mensajeInterno },
     }).catch(() => undefined)
     await updateInboundMessageLog(messageLogId, {
       status,
       flowStage: status,
-      errorMessage: mensaje,
+      errorMessage: mensajeInterno,
       finish: true,
     }).catch(() => undefined)
   }
