@@ -42,30 +42,27 @@ async function enviarMensajeConRetry(chatId: string, texto: string, intentos = 3
 // ─── Text builders (exported for logging + UI display) ────────────────────
 
 export function buildMensajeDetallado(c: ComisionesCalculadas): string {
-  const lineas = [
-    '💸 TRANSACCIÓN CONFIRMADA 💸',
+  return [
+    '━━━━━━━━━━━━━━━━━━━━',
+    '📊 COMPROBANTE DE TRANSACCIÓN',
+    '━━━━━━━━━━━━━━━━━━━━',
     '',
-    `👤 Cliente: ${c.cliente}`,
-    `🤝 Colaborador: ${c.colaborador}`,
+    '📄 OPERACIÓN',
+    `• Cliente: ${c.cliente}`,
+    `• Colaborador: ${c.colaborador}`,
     '',
-    `💵 USD Total: $${formatUsd(c.usdTotal)}`,
-    `📉 Comisión: ${formatPct(c.comisionPct)}`,
-    `✅ USD Neto (a pagar): $${formatUsd(c.usdNeto)}`,
+    '💵 CÁLCULO',
+    `• Importe recibido: $${formatUsd(c.usdTotal)} USD`,
+    `• Comisión aplicada: ${formatPct(c.comisionPct)}`,
+    `• Neto a pagar: $${formatUsd(c.usdNeto)} USD`,
     '',
-    `💱 Tasa usada: ${formatUsd(c.tasaUsada)} Gs/USD`,
-    `💰 Monto entregado: ${formatGs(c.montoGs)} Gs`,
-  ]
-
-  if (c.porcentajeColaborador > 0) {
-    lineas.push(
-      '',
-      '📊 Distribución de comisiones:',
-      `• ${c.colaborador}: $${formatUsd(c.comisionColaboradorUsd)} USD (${formatGs(c.comisionColaboradorGs)} Gs)`,
-      `• Gabriel Zambrano: $${formatUsd(c.comisionGabrielUsd)} USD (${formatGs(c.comisionGabrielGs)} Gs)`
-    )
-  }
-
-  return lineas.join('\n')
+    '💱 LIQUIDACIÓN',
+    `• Tasa de cambio: ${formatGs(c.tasaUsada)} Gs/USD`,
+    `• Monto entregado: ${formatGs(c.montoGs)} Gs`,
+    '',
+    '━━━━━━━━━━━━━━━━━━━━',
+    '✅ Operación registrada correctamente.',
+  ].join('\n')
 }
 
 export function buildMensajeResumen(c: ComisionesCalculadas): string {
