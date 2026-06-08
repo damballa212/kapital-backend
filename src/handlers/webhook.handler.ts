@@ -27,42 +27,48 @@ import {
   updateInboundMessageLog,
 } from '../repositories/whatsappLog.repository.js'
 import type { WhatsappInboundStatus } from '../domain/whatsappLog.js'
+
 export async function handleWhatsAppWebhook(req: Request, res: Response): Promise<void> {
-  // Evolution API espera 200 siempre para no reintentar
-  res.sendStatus(200)
-
   const payload = normalizeWhatsAppPayload(req.body as Record<string, unknown>)
-  if (!payload) return
-  const messageLogId = await createInboundMessageLog(payload, req.body as Record<string, unknown>)
-await recordWebhookFlowEvent(messageLogId, {
-    stage: 'received',
-    status: 'ok',
-    details: {
-      chatId: payload.chatId,
-      rawChatId: payload.rawChatId,
-      alternateChatIds: payload.alternateChatIds,
-      messageId: payload.messageId,
-      sourceShape: payload.sourceShape,
-      messageType: payload.messageType,
-    },
-  })
-
-  // Ignorar mensajes propios o de grupos
-  if (payload.chatId.endsWith('@g.us')) {
-    await recordWebhookFlowEvent(messageLogId, {
-      stage: 'ignored_group',
-      status: 'skipped',
-      details: { chatId: payload.chatId },
-    })
-    await updateInboundMessageLog(messageLogId, {
-      status: 'ignored_group',
-      flowStage: 'ignored_group',
-      finish: true,
-    })
+  if (!payload) {
+    res.sendStatus(200)
     return
   }
 
+  // Proceso completo antes de responder: Azure Functions termina la invocación
+  // al resolver el Promise (cuando res.end() es llamado). Si respondemos primero,
+  // todo el trabajo asíncrono posterior queda abandonado.
+  let messageLogId = -1
   try {
+    messageLogId = await createInboundMessageLog(payload, req.body as Record<string, unknown>)
+    await recordWebhookFlowEvent(messageLogId, {
+      stage: 'received',
+      status: 'ok',
+      details: {
+        chatId: payload.chatId,
+        rawChatId: payload.rawChatId,
+        alternateChatIds: payload.alternateChatIds,
+        messageId: payload.messageId,
+        sourceShape: payload.sourceShape,
+        messageType: payload.messageType,
+      },
+    })
+
+    if (payload.chatId.endsWith('@g.us')) {
+      await recordWebhookFlowEvent(messageLogId, {
+        stage: 'ignored_group',
+        status: 'skipped',
+        details: { chatId: payload.chatId },
+      })
+      await updateInboundMessageLog(messageLogId, {
+        status: 'ignored_group',
+        flowStage: 'ignored_group',
+        finish: true,
+      })
+      res.sendStatus(200)
+      return
+    }
+
     if (await superaRateLimit(payload.chatId)) {
       await enviarError(payload.chatId, 'Límite de mensajes alcanzado. Espera 1 minuto.')
       await recordWebhookFlowEvent(messageLogId, {
@@ -76,6 +82,7 @@ await recordWebhookFlowEvent(messageLogId, {
         errorMessage: 'Límite de mensajes alcanzado. Espera 1 minuto.',
         finish: true,
       })
+      res.sendStatus(200)
       return
     }
 
@@ -96,6 +103,7 @@ await recordWebhookFlowEvent(messageLogId, {
         parsedType: 'ERROR',
         finish: true,
       })
+      res.sendStatus(200)
       return
     }
 
@@ -115,6 +123,7 @@ await recordWebhookFlowEvent(messageLogId, {
         errorMessage: parsed.mensaje,
         finish: true,
       })
+      res.sendStatus(200)
       return
     }
 
@@ -134,6 +143,7 @@ await recordWebhookFlowEvent(messageLogId, {
         parsedType: 'TASA',
         finish: true,
       })
+      res.sendStatus(200)
       return
     }
 
@@ -145,6 +155,7 @@ await recordWebhookFlowEvent(messageLogId, {
       await enviarResumenHoy(payload.chatId, resumen)
       await recordWebhookFlowEvent(messageLogId, { stage: 'hoy_sent', status: 'ok', details: { totalTransacciones: resumen.totalTransacciones } })
       await updateInboundMessageLog(messageLogId, { status: 'confirmation_sent', flowStage: 'hoy_sent', parsedType: 'HOY', finish: true })
+      res.sendStatus(200)
       return
     }
 
@@ -153,7 +164,6 @@ await recordWebhookFlowEvent(messageLogId, {
       const year  = now.getFullYear()
       const month = now.getMonth() + 1
 
-      // Identificar al colaborador por userName (pushName de WhatsApp)
       const userName = payload.userName || ''
       const dbColab = await findCollaboratorByName(userName)
       let nombre: string
@@ -163,7 +173,6 @@ await recordWebhookFlowEvent(messageLogId, {
         nombre    = dbColab.name
         esGabriel = dbColab.basePctUsdTotal === 0
       } else {
-        // Fallback al resolver hardcodeado
         try {
           const resolved = resolverColaborador(userName || null, 13, null)
           nombre    = resolved.colaborador
@@ -173,6 +182,7 @@ await recordWebhookFlowEvent(messageLogId, {
           await updateInboundMessageLog(messageLogId, { responseText: `❌ ${errMsg}` })
           await enviarError(payload.chatId, errMsg)
           await updateInboundMessageLog(messageLogId, { status: 'parse_error', flowStage: 'yo_not_found', parsedType: 'YO', errorMessage: errMsg, finish: true })
+          res.sendStatus(200)
           return
         }
       }
@@ -183,6 +193,7 @@ await recordWebhookFlowEvent(messageLogId, {
       await enviarResumenYo(payload.chatId, resumen)
       await recordWebhookFlowEvent(messageLogId, { stage: 'yo_sent', status: 'ok', details: { nombre } })
       await updateInboundMessageLog(messageLogId, { status: 'confirmation_sent', flowStage: 'yo_sent', parsedType: 'YO', finish: true })
+      res.sendStatus(200)
       return
     }
 
@@ -219,6 +230,7 @@ await recordWebhookFlowEvent(messageLogId, {
           errorMessage: mensaje,
           finish: true,
         }).catch(() => undefined)
+        res.sendStatus(200)
         return
       }
       await recordWebhookFlowEvent(messageLogId, {
@@ -234,35 +246,43 @@ await recordWebhookFlowEvent(messageLogId, {
         finish: true,
       })
     }
+
+    res.sendStatus(200)
   } catch (err) {
     if (err instanceof DuplicateTransactionError) {
-      await recordWebhookFlowEvent(messageLogId, {
-        stage: 'ignored_duplicate',
-        status: 'skipped',
-        details: { idempotencyKey: err.idempotencyKey },
-      }).catch(() => undefined)
-      await updateInboundMessageLog(messageLogId, {
-        status: 'ignored_duplicate',
-        flowStage: 'ignored_duplicate',
-        finish: true,
-      }).catch(() => undefined)
+      if (messageLogId !== -1) {
+        await recordWebhookFlowEvent(messageLogId, {
+          stage: 'ignored_duplicate',
+          status: 'skipped',
+          details: { idempotencyKey: err.idempotencyKey },
+        }).catch(() => undefined)
+        await updateInboundMessageLog(messageLogId, {
+          status: 'ignored_duplicate',
+          flowStage: 'ignored_duplicate',
+          finish: true,
+        }).catch(() => undefined)
+      }
+      res.sendStatus(200)
       return
     }
     const mensajeInterno = err instanceof Error ? err.message : 'Error interno'
     await enviarError(payload.chatId, 'Ocurrió un error interno. Por favor reintentá en unos segundos.').catch(() => undefined)
-    const status: WhatsappInboundStatus = mensajeInterno.toLowerCase().includes('confirm')
-      ? 'confirmation_failed'
-      : 'failed'
-    await recordWebhookFlowEvent(messageLogId, {
-      stage: status,
-      status: 'failed',
-      details: { mensaje: mensajeInterno },
-    }).catch(() => undefined)
-    await updateInboundMessageLog(messageLogId, {
-      status,
-      flowStage: status,
-      errorMessage: mensajeInterno,
-      finish: true,
-    }).catch(() => undefined)
+    if (messageLogId !== -1) {
+      const status: WhatsappInboundStatus = mensajeInterno.toLowerCase().includes('confirm')
+        ? 'confirmation_failed'
+        : 'failed'
+      await recordWebhookFlowEvent(messageLogId, {
+        stage: status,
+        status: 'failed',
+        details: { mensaje: mensajeInterno },
+      }).catch(() => undefined)
+      await updateInboundMessageLog(messageLogId, {
+        status,
+        flowStage: status,
+        errorMessage: mensajeInterno,
+        finish: true,
+      }).catch(() => undefined)
+    }
+    res.sendStatus(200)
   }
 }
