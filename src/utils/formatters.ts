@@ -7,5 +7,5 @@ export function formatUsd(n: number): string {
 }
 
 export function formatPct(n: number): string {
-  return `${n.toFixed(2)}%`
+  return `${Number(n.toFixed(2))}%`
 }
