@@ -42,7 +42,7 @@ async function enviarMensajeConRetry(chatId: string, texto: string, intentos = 3
 // ─── Text builders (exported for logging + UI display) ────────────────────
 
 export function buildMensajeDetallado(c: ComisionesCalculadas): string {
-  return [
+  const lineas = [
     '━━━━━━━━━━━━━━━━━━━━',
     '📊 COMPROBANTE DE TRANSACCIÓN',
     '━━━━━━━━━━━━━━━━━━━━',
@@ -59,10 +59,24 @@ export function buildMensajeDetallado(c: ComisionesCalculadas): string {
     '💱 LIQUIDACIÓN',
     `• Tasa de cambio: ${formatGs(c.tasaUsada)} Gs/USD`,
     `• Monto entregado: ${formatGs(c.montoGs)} Gs`,
+  ]
+
+  if (c.porcentajeColaborador > 0) {
+    lineas.push(
+      '',
+      '📊 DISTRIBUCIÓN DE COMISIONES',
+      `• ${c.colaborador}: $${formatUsd(c.comisionColaboradorUsd)} USD (${formatGs(c.comisionColaboradorGs)} Gs)`,
+      `• Gabriel Zambrano: $${formatUsd(c.comisionGabrielUsd)} USD (${formatGs(c.comisionGabrielGs)} Gs)`
+    )
+  }
+
+  lineas.push(
     '',
     '━━━━━━━━━━━━━━━━━━━━',
-    '✅ Operación registrada correctamente.',
-  ].join('\n')
+    '✅ Operación registrada correctamente.'
+  )
+
+  return lineas.join('\n')
 }
 
 export function buildMensajeResumen(c: ComisionesCalculadas): string {
