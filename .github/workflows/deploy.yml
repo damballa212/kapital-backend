@@ -30,6 +30,23 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: Upload Sentry source maps
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: darks-matter-co
+          SENTRY_PROJECT: kapital-backend
+          SENTRY_RELEASE: ${{ github.sha }}
+        run: |
+          pnpm exec sentry-cli releases new "$SENTRY_RELEASE" --org "$SENTRY_ORG" --project "$SENTRY_PROJECT"
+          pnpm exec sentry-cli sourcemaps upload lib \
+            --org "$SENTRY_ORG" \
+            --project "$SENTRY_PROJECT" \
+            --release "$SENTRY_RELEASE" \
+            --strip-common-prefix \
+            --validate \
+            --wait
+          pnpm exec sentry-cli releases finalize "$SENTRY_RELEASE" --org "$SENTRY_ORG"
+
       - name: Create deployment zip (respecting .funcignore)
         run: |
           zip -r deploy.zip . \
