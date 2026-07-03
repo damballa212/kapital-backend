@@ -9,7 +9,7 @@ overrides:
   protobufjs: ^7.6.4
   tmp: ^0.2.6
   uuid: ^11.1.1
-  vite: ^7.3.5
+  vite: ^7.3.6
 
 importers:
 
@@ -670,7 +670,7 @@ packages:
     resolution: {integrity: sha512-LEiN/xe4OSIbKe9HQIp5OC24agGD9J5CnmMgsLohVVoOPWL9a2sBoR6VBx43jQZb7Kr1l4RCuyCJzcAa0+dojw==}
     peerDependencies:
       msw: ^2.4.9
-      vite: ^7.3.5
+      vite: ^7.3.6
     peerDependenciesMeta:
       msw:
         optional: true
@@ -1995,7 +1995,7 @@ packages:
       '@vitest/ui': 4.1.8
       happy-dom: '*'
       jsdom: '*'
-      vite: ^7.3.5
+      vite: ^7.3.6
     peerDependenciesMeta:
       '@edge-runtime/vm':
         optional: true
