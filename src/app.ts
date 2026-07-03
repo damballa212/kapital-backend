@@ -1,4 +1,5 @@
 import express from 'express'
+import type { ErrorRequestHandler } from 'express'
 import { handleWhatsAppWebhook } from './handlers/webhook.handler.js'
 import { handleGetTransacciones, handleDeleteTransaccion } from './handlers/transactions.handler.js'
 import { handleGetDashboard } from './handlers/dashboard.handler.js'
@@ -17,6 +18,7 @@ import { handleAuthMe } from './handlers/authMe.handler.js'
 import { withAuth } from './middleware/auth.js'
 import { verifyEvolutionSecret } from './middleware/webhookAuth.js'
 import { sql } from './db/postgres.js'
+import { Sentry } from './config/sentry.js'
 
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN ?? 'https://kapital-app-prod.web.app'
 
@@ -64,5 +66,15 @@ export function createApp(): express.Express {
     }
   })
 
+  Sentry.setupExpressErrorHandler(app)
+  app.use(errorResponseHandler)
+
   return app
+}
+
+const errorResponseHandler: ErrorRequestHandler = (err, _req, res, _next) => {
+  const status = typeof err?.status === 'number' ? err.status : 500
+  res.status(status).json({
+    error: status === 400 ? 'invalid_request' : 'internal_error',
+  })
 }

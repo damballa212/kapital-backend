@@ -20,6 +20,7 @@ The backend handles two responsibilities:
 | Auth | Firebase Admin SDK (ID token verification) |
 | WhatsApp | [Evolution API](https://github.com/EvolutionAPI/evolution-api) |
 | Logging | BetterStack (via `@logtail/node`) + `console.*` fallback |
+| Error monitoring | Sentry (optional, via `SENTRY_DSN`) |
 | PDF export | PDFKit |
 | Excel export | ExcelJS |
 | Tests | Vitest |
@@ -132,6 +133,9 @@ EVOLUTION_INSTANCE=your-instance-name
 # Optional
 BETTERSTACK_TOKEN=your-source-token
 BETTERSTACK_HOST=https://your-source.betterstackdata.com
+SENTRY_DSN=https://your-sentry-dsn
+SENTRY_ENVIRONMENT=production
+SENTRY_RELEASE=kapital-backend@<commit-sha>
 ALLOWED_ORIGIN=https://your-frontend-domain
 EVOLUTION_WEBHOOK_SECRET=optional-webhook-secret
 ```

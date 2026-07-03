@@ -2,6 +2,7 @@ import { IncomingMessage, ServerResponse } from 'node:http'
 import { Socket } from 'node:net'
 import type { HttpRequest, HttpResponseInit } from '@azure/functions'
 import { initializeApp, cert } from 'firebase-admin/app'
+import './config/sentry.js'
 import { getFirebaseServiceAccount } from './config/firebaseAdmin.js'
 import { createApp } from './app.js'
 

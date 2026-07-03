@@ -45,6 +45,13 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      - name: Update Sentry release metadata
+        run: |
+          az functionapp config appsettings set \
+            --name kapital-api-463222 \
+            --resource-group kapital-rg \
+            --settings SENTRY_ENVIRONMENT=production SENTRY_RELEASE=${{ github.sha }}
+
       - name: Deploy to Azure Functions
         run: |
           az functionapp deployment source config-zip \
