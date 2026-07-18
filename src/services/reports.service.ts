@@ -24,8 +24,8 @@ const ALL_FIELDS = [
 ]
 
 function fechaPY(d: Date): string {
-  return d.toLocaleString('es-PY', { timeZone: TZ, hour12: false })
-    .replace(',', '')
+  // Solo fecha, sin hora — la hora no aporta al reporte y rompía el layout del PDF
+  return d.toLocaleDateString('es-PY', { timeZone: TZ })
 }
 
 function getFieldValue(r: Transaction, key: string): string | number {
@@ -100,7 +100,12 @@ export async function generarExcel(filtros: FiltroReporte): Promise<Buffer> {
 
   rows.forEach((r, i) => {
     const values: Record<string, string | number> = {}
-    fields.forEach(f => { values[f.key] = getFieldValue(r, f.key) })
+    // USD se guarda YA redondeado a 2 decimales: lo que se ve = lo que Excel suma
+    // (sin precisión oculta que descuadre las sumas del contador).
+    fields.forEach(f => {
+      const v = getFieldValue(r, f.key)
+      values[f.key] = USD_FIELDS.has(f.key) ? round2(v as number) : v
+    })
     const row = ws.addRow(values)
     if (i % 2 === 1) {
       row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: GREEN_LIGHT } }
@@ -119,26 +124,34 @@ export async function generarExcel(filtros: FiltroReporte): Promise<Buffer> {
     })
   })
 
-  // fila de totales
-  const numFields = ['usd_total','usd_neto','monto_gs','com_colaborador_usd','com_gabriel_usd','com_colaborador_gs','com_gabriel_gs']
+  // fila de totales: USD = suma de las filas YA redondeadas (cuadra fila x fila = total);
+  // Gs son enteros (suma exacta). Se formatea igual que las filas de datos.
   const totals: Record<string, string | number> = {}
   fields.forEach(f => {
-    if (numFields.includes(f.key)) totals[f.key] = rows.reduce((s, r) => s + (getFieldValue(r, f.key) as number), 0)
+    if (USD_FIELDS.has(f.key))
+      totals[f.key] = round2(rows.reduce((s, r) => s + round2(getFieldValue(r, f.key) as number), 0))
+    else if (GS_FIELDS.has(f.key))
+      totals[f.key] = rows.reduce((s, r) => s + (getFieldValue(r, f.key) as number), 0)
     else totals[f.key] = f.key === 'id' ? 'TOTAL' : ''
   })
   const totRow = ws.addRow(totals)
   totRow.font = { bold: true }
   totRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD6EAD7' } }
+  fields.forEach((f, col) => {
+    const cell = totRow.getCell(col + 1)
+    if (USD_FIELDS.has(f.key)) cell.numFmt = '$#,##0.00'
+    else if (GS_FIELDS.has(f.key)) cell.numFmt = '#,##0'
+  })
 
   ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: fields.length } }
   ws.views = [{ state: 'frozen', ySplit: 1 }]
 
   // ── Hoja 2: Resumen ──
   const ws2 = wb.addWorksheet('Resumen')
-  const totalUsd  = rows.reduce((s, r) => s + r.usdTotal, 0)
+  const totalUsd  = round2(rows.reduce((s, r) => s + round2(r.usdTotal), 0))
   const totalGs   = rows.reduce((s, r) => s + r.montoGs, 0)
-  const comGab    = rows.reduce((s, r) => s + r.montoComisionGabrielUsd, 0)
-  const comColab  = rows.reduce((s, r) => s + r.montoColaboradorUsd, 0)
+  const comGab    = round2(rows.reduce((s, r) => s + round2(r.montoComisionGabrielUsd), 0))
+  const comColab  = round2(rows.reduce((s, r) => s + round2(r.montoColaboradorUsd), 0))
 
   const summary = [
     ['Métrica', 'Valor'],
@@ -170,19 +183,55 @@ export async function generarExcel(filtros: FiltroReporte): Promise<Buffer> {
   rows.forEach(r => {
     const name = r.colaborador ?? 'Gabriel Zambrano'
     const cur = byColab.get(name) ?? { txs: 0, usd: 0, comUsd: 0 }
-    byColab.set(name, { txs: cur.txs + 1, usd: cur.usd + r.usdTotal, comUsd: cur.comUsd + r.montoColaboradorUsd })
+    byColab.set(name, { txs: cur.txs + 1, usd: cur.usd + round2(r.usdTotal), comUsd: cur.comUsd + round2(r.montoColaboradorUsd) })
   })
   const hdr3 = ws3.addRow(['Colaborador', 'Transacciones', 'USD Movido', 'Comisión USD'])
   hdr3.font = { bold: true, color: { argb: 'FFFFFFFF' } }
   hdr3.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: GREEN_DARK } }
   byColab.forEach((v, name) => {
-    const r = ws3.addRow([name, v.txs, v.usd, v.comUsd])
+    const r = ws3.addRow([name, v.txs, round2(v.usd), round2(v.comUsd)])
     r.getCell(3).numFmt = '$#,##0.00'
     r.getCell(4).numFmt = '$#,##0.00'
   })
   ws3.columns = [{ width: 24 }, { width: 16 }, { width: 16 }, { width: 16 }]
 
   return wb.xlsx.writeBuffer() as unknown as Promise<Buffer>
+}
+
+// Etiquetas compactas por columna para el PDF: pdfkit 0.15 ignora `lineBreak:false`,
+// así que un header largo se parte en varias líneas y se sale de la banda. Estas caben
+// en una sola línea dentro del ancho de su columna.
+const PDF_LABEL: Record<string, string> = {
+  comision:            'Com. %',
+  usd_total:           'USD Total',
+  usd_neto:            'USD Neto',
+  monto_gs:            'Monto Gs',
+  com_colaborador_usd: 'Com. Colab. $',
+  com_gabriel_usd:     'Com. Gabriel $',
+  com_colaborador_gs:  'Com. Colab. Gs',
+  com_gabriel_gs:      'Com. Gabriel Gs',
+  tasa_usada:          'Tasa Usada',
+}
+
+// Redondeo contable a 2 decimales (medio hacia arriba), estándar para el contador.
+// El epsilon corrige el error binario de float para que un x.xx5 no caiga por debajo.
+function round2(n: number): number {
+  return Math.round(n * 100 + 1e-9) / 100
+}
+function usd2(n: number): string {
+  return round2(n).toFixed(2)
+}
+
+// Campos monetarios, compartidos por Excel y PDF
+const USD_FIELDS = new Set(['usd_total', 'usd_neto', 'com_colaborador_usd', 'com_gabriel_usd'])
+const GS_FIELDS  = new Set(['monto_gs', 'com_colaborador_gs', 'com_gabriel_gs'])
+
+// Valor de celda de detalle ya formateado para el PDF (USD redondeado, Gs con separadores)
+function pdfCellValue(r: Transaction, key: string): string {
+  const v = getFieldValue(r, key)
+  if (USD_FIELDS.has(key)) return usd2(v as number)
+  if (GS_FIELDS.has(key))  return formatGs(v as number)
+  return String(v)
 }
 
 // ── PDF — A4 Landscape, diseño ejecutivo corporativo ─────────────────────────
@@ -259,12 +308,21 @@ export async function generarPDF(filtros: FiltroReporte): Promise<Buffer> {
   }
 
   // ── Encabezado de tabla ───────────────────────────────────────────────────
-  const TH_H = 20
+  // pdfkit 0.15 ignora lineBreak:false, así que un header que no entra en su
+  // columna hace wrap. Medimos: si algún header no entra en una línea, la banda
+  // crece a 2 líneas para que nada se salga (columnas anchas → banda compacta).
+  doc.fontSize(7.5).font('Helvetica-Bold')
+  const headerNeeds2Lines = fields.some((f, i) => {
+    const label = (PDF_LABEL[f.key] ?? f.label).toUpperCase()
+    return doc.widthOfString(label) > colW[i] - 6
+  })
+  const TH_H = headerNeeds2Lines ? 27 : 20
   function tableHeader(y: number) {
     doc.rect(L, y, W, TH_H).fill(GREEN)
     doc.fillColor(WHITE).fontSize(7.5).font('Helvetica-Bold')
     fields.forEach((f, i) => {
-      doc.text(f.label.toUpperCase(), cx(i) + 4, y + 6, { width: colW[i] - 6, lineBreak: false })
+      const label = (PDF_LABEL[f.key] ?? f.label).toUpperCase()
+      doc.text(label, cx(i) + 4, y + 6, { width: colW[i] - 6, lineBreak: false })
     })
     doc.fillColor(INK).font('Helvetica')
     return y + TH_H
@@ -280,8 +338,8 @@ export async function generarPDF(filtros: FiltroReporte): Promise<Buffer> {
   rows.forEach(r => {
     const n = r.colaborador ?? 'Gabriel Zambrano'
     const v = byC.get(n) ?? { txs: 0, usd: 0, gs: 0, com: 0, comG: 0 }
-    byC.set(n, { txs: v.txs + 1, usd: v.usd + r.usdTotal, gs: v.gs + r.montoGs,
-                 com: v.com + r.montoColaboradorUsd, comG: v.comG + r.montoComisionGabrielUsd })
+    byC.set(n, { txs: v.txs + 1, usd: v.usd + round2(r.usdTotal), gs: v.gs + r.montoGs,
+                 com: v.com + round2(r.montoColaboradorUsd), comG: v.comG + round2(r.montoComisionGabrielUsd) })
   })
 
   // Estimate where page-1 summary ends to find available space for transactions
@@ -304,10 +362,13 @@ export async function generarPDF(filtros: FiltroReporte): Promise<Buffer> {
   doc.addPage()
   shell(pageNum, totalPages)
 
-  const totUsd  = rows.reduce((s, r) => s + r.usdTotal, 0)
+  // Totales USD = suma de las filas YA redondeadas, para que "fila por fila = total"
+  // cuadre exacto en el reporte (sin desfase de centavos frente al contador).
+  // Gs son enteros: su suma ya es exacta.
+  const totUsd  = round2(rows.reduce((s, r) => s + round2(r.usdTotal), 0))
   const totGs   = rows.reduce((s, r) => s + r.montoGs, 0)
-  const comGab  = rows.reduce((s, r) => s + r.montoComisionGabrielUsd, 0)
-  const comCol  = rows.reduce((s, r) => s + r.montoColaboradorUsd, 0)
+  const comGab  = round2(rows.reduce((s, r) => s + round2(r.montoComisionGabrielUsd), 0))
+  const comCol  = round2(rows.reduce((s, r) => s + round2(r.montoColaboradorUsd), 0))
   const avgTasa = rows.length ? rows.reduce((s, r) => s + r.tasaUsada, 0) / rows.length : 0
 
   const SY = CT + 6
@@ -402,7 +463,7 @@ export async function generarPDF(filtros: FiltroReporte): Promise<Buffer> {
       if (i % 2 === 1) doc.rect(L, cy, W, ROW_H).fill(ROW_BG)
       doc.fillColor(INK).fontSize(8.5).font('Helvetica')
       fields.forEach((f, fi) => {
-        doc.text(String(getFieldValue(r, f.key)), cx(fi) + 4, cy + 4,
+        doc.text(pdfCellValue(r, f.key), cx(fi) + 4, cy + 4,
           { width: colW[fi] - 6, lineBreak: false })
       })
       cy += ROW_H
@@ -428,7 +489,7 @@ export async function generarPDF(filtros: FiltroReporte): Promise<Buffer> {
     if (buf % 2 === 1) doc.rect(L, y, W, ROW_H).fill(ROW_BG)
     doc.fillColor(INK).fontSize(8.5).font('Helvetica')
     fields.forEach((f, i) => {
-      doc.text(String(getFieldValue(r, f.key)), cx(i) + 4, y + 4,
+      doc.text(pdfCellValue(r, f.key), cx(i) + 4, y + 4,
         { width: colW[i] - 6, lineBreak: false })
     })
     y += ROW_H; buf++
