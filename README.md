@@ -209,17 +209,37 @@ pnpm test:watch
 
 Tests cover parser logic, transaction calculations, dashboard metrics, report generation, webhook handling, webhook payload normalization, rate limiting, auth middleware, and database integration.
 
+The database migration integration suite only runs when `TEST_DATABASE_URL` is
+provided and requires TLS. Without it, that suite is skipped. PR verification
+starts a disposable PostgreSQL 17.6 container with a one-day test TLS certificate,
+loopback-only random port and test credentials. It applies the existing migrations
+and runs the integration test in that empty database, then removes the container.
+Use an isolated test database for local integration tests as well. This does not
+validate upgrades of an existing production database or end-to-end business flows.
+
 ## Deployment
 
-CI/CD runs on every push to `main` via GitHub Actions:
+Pull requests install the frozen lockfile with pnpm 10.24.0, run the existing
+tests and compile TypeScript using Node.js 20, matching the deployment workflow.
+Verification uses read-only repository permissions and no production secrets.
+Its database credentials belong only to the disposable test container.
+Documentation-only changes are skipped; a newer update to the same PR cancels
+its previous verification. Jobs have a 15-minute timeout and upload no artifacts
+or dependency caches.
 
-1. Install dependencies with `pnpm install`.
+Production deployment runs on every push to `main` or manual dispatch via GitHub Actions:
+
+1. Install dependencies with `pnpm install --frozen-lockfile`.
 2. Run tests with `pnpm test`.
 3. Build TypeScript with `pnpm build`.
 4. Upload source maps to Sentry when `SENTRY_AUTH_TOKEN` is configured.
 5. Create the deployment zip.
 6. Deploy via Azure CLI with `az functionapp deployment source config-zip`.
 7. Set runtime Sentry release metadata on the Function App.
+
+Production deployment jobs are serialized without cancelling an active
+deployment and have a 25-minute timeout. Azure and Sentry credentials remain
+exclusive to the deployment workflow.
 
 Required GitHub secret: `AZURE_CREDENTIALS` (service principal JSON).
 

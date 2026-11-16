@@ -1,0 +1,66 @@
+name: Verify backend
+
+on:
+  pull_request:
+    paths-ignore:
+      - '**/*.md'
+      - '.gitignore'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-verify-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+        with:
+          version: 10.24.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Start isolated PostgreSQL with TLS
+        shell: bash
+        run: |
+          TLS_DIR=$(mktemp -d "$RUNNER_TEMP/kapital-db-tls.XXXXXX")
+          chmod 755 "$TLS_DIR"
+          openssl req -x509 -newkey rsa:2048 -nodes \
+            -keyout "$TLS_DIR/server.key" -out "$TLS_DIR/server.crt" \
+            -days 1 -subj /CN=localhost
+          chmod 600 "$TLS_DIR/server.key"
+          docker run -d --name kapital-ci-db \
+            --publish 127.0.0.1::5432 \
+            --mount "type=bind,source=$TLS_DIR,target=/tls" \
+            --env POSTGRES_USER=ci_user --env POSTGRES_DB=kapital_ci \
+            --env POSTGRES_PASSWORD=ci-only-disposable-password \
+            --health-cmd 'pg_isready -U ci_user -d kapital_ci' \
+            --health-interval 1s --health-timeout 3s --health-retries 30 \
+            --user root --entrypoint sh postgres:17.6-alpine \
+            -c 'chown postgres:postgres /tls/server.key && exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/tls/server.crt -c ssl_key_file=/tls/server.key'
+          timeout 60s bash -c 'until [ "$(docker inspect -f "{{.State.Health.Status}}" kapital-ci-db)" = healthy ]; do sleep 1; done'
+          DB_PORT=$(docker port kapital-ci-db 5432/tcp | sed 's/.*://')
+          echo "TEST_DATABASE_URL=postgres://ci_user:ci-only-disposable-password@127.0.0.1:$DB_PORT/kapital_ci" >> "$GITHUB_ENV"
+
+      - name: Run tests without production credentials
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+      - name: Remove isolated database
+        if: always()
+        run: docker rm -f kapital-ci-db || true
