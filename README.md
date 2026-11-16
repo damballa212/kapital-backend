@@ -211,14 +211,18 @@ Tests cover parser logic, transaction calculations, dashboard metrics, report ge
 
 The database migration integration suite only runs when `TEST_DATABASE_URL` is
 provided and requires TLS. Without it, that suite is skipped. PR verification
-does not supply a database credential; passing it does not establish that the
-migrations work against PostgreSQL. Use an isolated test database for that suite.
+starts a disposable PostgreSQL 17.6 container with a one-day test TLS certificate,
+loopback-only random port and test credentials. It applies the existing migrations
+and runs the integration test in that empty database, then removes the container.
+Use an isolated test database for local integration tests as well. This does not
+validate upgrades of an existing production database or end-to-end business flows.
 
 ## Deployment
 
 Pull requests install the frozen lockfile with pnpm 10.24.0, run the existing
 tests and compile TypeScript using Node.js 20, matching the deployment workflow.
 Verification uses read-only repository permissions and no production secrets.
+Its database credentials belong only to the disposable test container.
 Documentation-only changes are skipped; a newer update to the same PR cancels
 its previous verification. Jobs have a 15-minute timeout and upload no artifacts
 or dependency caches.
